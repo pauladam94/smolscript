@@ -1,6 +1,9 @@
 use std::mem::MaybeUninit;
 
-use crate::ast::ast::Ast;
+use crate::{
+    ast::{ast::Ast, block::Block},
+    parser::{pos::Pos, span::Span},
+};
 use logos::{Lexer, Logos, Skip};
 
 #[derive(Logos, Debug, PartialEq, Clone)]
@@ -71,11 +74,6 @@ fn skip_comments(lexer: &mut Lexer<Token>) -> Skip {
     Skip {}
 }
 
-#[derive(Clone, Debug, Default)]
-pub struct Pos {
-    line: u32,
-    column: u32,
-}
 // #[derive(Clone, Debug)]
 // pub struct CompleteToken {
 //     token: Token,
@@ -92,7 +90,7 @@ pub enum ParseError {
 
 /// A given [Token] implements the Parser trait because of
 impl Parser<Pos> for Token {
-    fn parse(mut self, input: &mut Lexer<Token>) -> Result<Pos, ParseError> {
+    fn parse(self, input: &mut Lexer<Token>) -> Result<Pos, ParseError> {
         let past_input = input.clone();
         match input.next() {
             Some(Ok(t)) => {
@@ -191,7 +189,7 @@ where
 /// parser combinators
 pub trait Parser<O> {
     fn parse(self, input: &mut Lexer<Token>) -> Result<O, ParseError>;
-    fn map_parse<S, F>(self, f: F) -> impl Parser<S>
+    fn apply<S, F>(self, f: F) -> impl Parser<S>
     where
         F: Fn(O) -> S,
         Self: Sized,
@@ -200,15 +198,15 @@ pub trait Parser<O> {
     }
 }
 
-fn ast_parser(input: &mut Lexer<Token>) -> Result<Ast, ParseError> {
+fn ast_parser<'src>(input: &mut Lexer<'src, Token>) -> Result<Ast<Span<&'src str>>, ParseError> {
     ["fn", "{", "}"]
-        .map_parse(|[_, _, _]| Ast {
+        .apply(|[_, _, _]| Ast {
+            block: Block { statements: vec![] },
             top_level: vec![],
-            proc: vec![],
         })
         .parse(input)
 }
-fn smolscript_parser(input: &str) -> Result<Ast, ParseError> {
+pub fn smolscript_parser<'src>(input: &'src str) -> Result<Ast<Span<&'src str>>, ParseError> {
     let mut lexer = Token::lexer(input);
     let ast = ast_parser(&mut lexer);
     if lexer.next().is_none() {

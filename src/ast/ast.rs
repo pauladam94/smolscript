@@ -1,6 +1,6 @@
-use crate::ast::{proc::Procedure, widget::Widget};
+use crate::ast::{block::Block, decl::Decl};
 
-pub struct Ast {
-    pub top_level: Vec<Widget>,
-    pub proc: Vec<Procedure>,
+pub struct Ast<Ident> {
+    pub top_level: Vec<Decl<Ident>>,
+    pub block: Block<Ident>,
 }
