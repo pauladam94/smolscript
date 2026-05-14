@@ -1,14 +1,11 @@
-use std::mem::MaybeUninit;
-
-use crate::{
-    ast::{ast::Ast, block::Block},
-    parser::{pos::Pos, span::Span},
-};
+use crate::parser::{error::ParseError, pos::Pos, span::Span};
 use logos::{Lexer, Logos, Skip};
+use std::fmt::Display;
 
 #[derive(Logos, Debug, PartialEq, Clone)]
 #[logos(extras = Pos)]
-#[logos(skip r"[ \t\n\f]+")] // Ignore this regex pattern between tokens
+#[logos(skip(r"\n", newline_callback))]
+#[logos(skip(r"[ \t\f]+"))] // Ignore this regex pattern between tokens
 pub enum Token {
     #[token("(*", skip_comments)]
     Comments,
@@ -65,8 +62,62 @@ pub enum Token {
 
     #[regex(r"-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?", |lex| lex.slice().parse::<f64>().unwrap())]
     Number(f64),
-    #[regex("(_|[a-zA-Z])(_|[0-9]|[a-zA-Z])*", |lex| lex.slice().to_owned())]
-    Identifier(String),
+    // #[regex("[a-zA-Z]+")]
+    // Identifier,
+    #[regex("(_|[a-zA-Z])(_|[0-9]|[a-zA-Z])*")]
+    Identifier,
+}
+
+/// Update the line count and the char index.
+fn newline_callback(lex: &mut Lexer<Token>) -> Skip {
+    lex.extras.line += 1;
+    lex.extras.column = lex.span().end as u32;
+    Skip
+}
+
+pub trait CurrentLexerPos {
+    fn pos(&self) -> Pos;
+}
+
+impl<'src> CurrentLexerPos for Lexer<'src, Token> {
+    fn pos(&self) -> Pos {
+        Pos {
+            line: self.extras.line,
+            column: self.span().end as u32 - self.extras.column,
+        }
+    }
+}
+
+impl Display for Token {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Token::Comments => write!(f, "comments"),
+            Token::Fn => write!(f, "fn"),
+            Token::Return => write!(f, "return"),
+            Token::Let => write!(f, "let"),
+            Token::Int => write!(f, "int"),
+            Token::Float => write!(f, "float"),
+            Token::Char => write!(f, "char"),
+            Token::Bool => write!(f, "bool"),
+            Token::Colon => write!(f, ":"),
+            Token::SemiColon => write!(f, ";"),
+            Token::Comma => write!(f, ","),
+            Token::ParenOpen => write!(f, "("),
+            Token::ParenClose => write!(f, ")"),
+            Token::BracketOpen => write!(f, "["),
+            Token::BracketClose => write!(f, "]"),
+            Token::BraceOpen => write!(f, "{{"),
+            Token::BraceClose => write!(f, "}}"),
+            Token::Period => write!(f, "."),
+            Token::Carrot => write!(f, "^"),
+            Token::Add => write!(f, "+"),
+            Token::Sub => write!(f, "-"),
+            Token::Mult => write!(f, "*"),
+            Token::Div => write!(f, "/"),
+            Token::Number(i) => write!(f, "{i}"),
+            Token::Identifier => write!(f, "identifier"),
+        }
+    }
 }
 
 fn skip_comments(lexer: &mut Lexer<Token>) -> Skip {
@@ -74,37 +125,30 @@ fn skip_comments(lexer: &mut Lexer<Token>) -> Skip {
     Skip {}
 }
 
-// #[derive(Clone, Debug)]
-// pub struct CompleteToken {
-//     token: Token,
-//     fragment: String,
-//     pos: FilePosition,
-// }
-#[derive(Debug)]
-pub enum ParseError {
-    Incomplete(String),
-    Complete,
-    Error,
-    Unknown,
-}
-
 /// A given [Token] implements the Parser trait because of
-impl Parser<Pos> for Token {
-    fn parse(self, input: &mut Lexer<Token>) -> Result<Pos, ParseError> {
-        let past_input = input.clone();
+impl<'src> Parser<'src, Span<&'src str>> for Token {
+    fn parse(&mut self, input: &mut Lexer<'src, Token>) -> Result<Span<&'src str>, ParseError> {
         match input.next() {
             Some(Ok(t)) => {
-                if t == self {
-                    let _ = input.next();
-                    Ok(input.extras.clone())
+                if &t == self {
+                    Ok(Span {
+                        pos: input.pos(),
+                        str: input.slice(),
+                    })
                 } else {
-                    Err(ParseError::Error)
+                    Err(ParseError {
+                        errors: vec![format!(
+                            "Got the token '{t}' when waiting for the token '{self}'"
+                        )],
+                    })
                 }
             }
-            Some(Err(_)) | None => {
-                *input = past_input;
-                Err(ParseError::Error)
-            }
+            Some(Err(_)) | None => Err(ParseError {
+                errors: vec![format!(
+                    "No token anymore when waiting for '{self}' at position : {}",
+                    input.pos()
+                )],
+            }),
         }
     }
 }
@@ -112,116 +156,56 @@ impl Parser<Pos> for Token {
 /// A Given [&str] implements the [Parser] trait
 /// by looking at the next token to see if it's string
 /// representation is the same as the string
-impl Parser<Pos> for &str {
-    fn parse(self, input: &mut Lexer<Token>) -> Result<Pos, ParseError> {
+impl<'src> Parser<'src, Pos> for &str {
+    fn parse(&mut self, input: &mut Lexer<Token>) -> Result<Pos, ParseError> {
         let past_input = input.clone();
         match input.next() {
-            Some(Ok(o)) => {
-                if input.slice() == self {
-                    Ok(input.extras.clone())
+            Some(Ok(_)) => {
+                if &input.slice() == self {
+                    Ok(input.pos())
                 } else {
-                    Err(ParseError::Unknown)
+                    Err(ParseError {
+                        errors: vec![format!(
+                            "Expected the &str '{}' but got '{}'",
+                            self,
+                            input.slice()
+                        )],
+                    })
                 }
             }
-            Some(Err(_)) | None => {
+            Some(Err(())) | None => {
                 *input = past_input;
-                Err(ParseError::Unknown)
+                Err(ParseError {
+                    errors: vec![format!(
+                        "Expected the &str '{}' but got no more tokens in stream",
+                        self
+                    )],
+                })
             }
         }
-    }
-}
-
-/// `[p1, ..., pn]` implements the [Parser] trait
-/// it is a sequence that tries in order the parsers
-/// - returns an array of output if all are sucessfull
-/// - retuns an error if any of them fails
-impl<O, T, const N: usize> Parser<[O; N]> for [T; N]
-where
-    T: Parser<O>,
-{
-    fn parse(self, input: &mut Lexer<Token>) -> Result<[O; N], ParseError> {
-        let mut res: [MaybeUninit<O>; N] = [const { MaybeUninit::uninit() }; N];
-        for (i, p) in self.into_iter().enumerate() {
-            res[i].write(p.parse(input)?);
-        }
-        Ok(res.map(|o| unsafe { o.assume_init() }))
-    }
-}
-
-/// `alt([p1, ..., pn])` test in order the parser
-/// - returns the first sucessfull one
-/// - returns an error if all are unsucessfull
-fn alt<O, const N: usize>(parsers: [impl Parser<O>; N]) -> impl Parser<O> {
-    move |input: &mut Lexer<Token>| {
-        for parser in parsers {
-            match parser.parse(input) {
-                Ok(o) => return Ok(o),
-                Err(_) => {}
-            }
-        }
-        Err(ParseError::Error)
-    }
-}
-
-/// Many Parser
-///
-/// repeats a given and returns a vector of the input
-fn many<O>(parser: impl Parser<O>) -> impl Parser<Vec<O>> {
-    move |input: &mut Lexer<Token>| {
-        let mut res = vec![];
-        loop {}
-        Ok(res)
     }
 }
 
 /// Any function of type (&mut Tokens) -> Result<O, ParseError>
 /// implements the [Parser] trait.
-impl<T, O> Parser<O> for T
+impl<'src, T, O> Parser<'src, O> for T
 where
-    T: FnOnce(&mut Lexer<Token>) -> Result<O, ParseError>,
+    T: FnMut(&mut Lexer<'src, Token>) -> Result<O, ParseError>,
 {
-    fn parse(self, input: &mut Lexer<Token>) -> Result<O, ParseError> {
+    fn parse(&mut self, input: &mut Lexer<'src, Token>) -> Result<O, ParseError> {
         self(input)
     }
 }
 
 /// [Parser] trait is a trait to write
 /// parser combinators
-pub trait Parser<O> {
-    fn parse(self, input: &mut Lexer<Token>) -> Result<O, ParseError>;
-    fn apply<S, F>(self, f: F) -> impl Parser<S>
+pub trait Parser<'src, O> {
+    fn parse(&mut self, input: &mut Lexer<'src, Token>) -> Result<O, ParseError>;
+    fn apply<S, F>(&mut self, mut f: F) -> impl Parser<'src, S>
     where
-        F: Fn(O) -> S,
+        F: FnMut(O) -> S,
         Self: Sized,
     {
-        move |input: &mut Lexer<Token>| self.parse(input).map(|o| f(o))
-    }
-}
-
-fn ast_parser<'src>(input: &mut Lexer<'src, Token>) -> Result<Ast<Span<&'src str>>, ParseError> {
-    ["fn", "{", "}"]
-        .apply(|[_, _, _]| Ast {
-            block: Block { statements: vec![] },
-            top_level: vec![],
-        })
-        .parse(input)
-}
-pub fn smolscript_parser<'src>(input: &'src str) -> Result<Ast<Span<&'src str>>, ParseError> {
-    let mut lexer = Token::lexer(input);
-    let ast = ast_parser(&mut lexer);
-    if lexer.next().is_none() {
-        // Todo better error
-        Err(ParseError::Error)
-    } else {
-        ast
-    }
-}
-
-#[cfg(test)]
-mod test {
-
-    #[test]
-    fn test() {
-        let input = "fn f() { let a = 4; } ";
+        move |input: &mut Lexer<'src, Token>| self.parse(input).map(|o| f(o))
     }
 }

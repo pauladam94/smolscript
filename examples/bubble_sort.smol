@@ -1,0 +1,33 @@
+fn bubble_sort(mut l : mut [u64]) -> [u64] {
+	let mut i = 0;
+	let mut cpt = 0;
+	while (cpt != l.len()) {
+		if l[i] <= l[i + 1] {
+			cpt += 1;
+		} else {
+			let tmp = l[i + 1];
+			l[i + 1] := l[i]; 
+			l[i] := tmp;
+		}
+		i := i + 1;
+		if i == l.len() {
+			i := 0;
+		}
+	}
+	l
+}
+
+let l = [];
+l.push(12);
+l.push(2);
+l.push(42);
+l.push(13);
+l.push(0);
+
+// l is copied here by the function call
+bubble_sort(l)
+// l is not modified after the call to `bubble_sort`
+
+
+
+

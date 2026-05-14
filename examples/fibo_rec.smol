@@ -6,7 +6,7 @@ fn aux(n : u64, acc1 : u64, acc2 : u64) -> u64 {
 	if n == 0 {
 		acc2
 	} else {
-		aux(n - 1, acc1, acc2)
+		aux(n - 1, acc2, acc2 + acc1)
 	}
 }
 
