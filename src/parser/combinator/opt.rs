@@ -1,9 +1,8 @@
-use crate::parser::lexer::{Parser, Token};
-use logos::Lexer;
+use crate::parser::lexer::Parser;
 
-pub fn opt<'src, O>(mut parser: impl Parser<'src, O>) -> impl Parser<'src, Option<O>> {
-    move |input: &mut Lexer<'src, Token>| {
-        let past_input = input.clone();
+pub fn opt<I: Clone, O>(mut parser: impl Parser<I, O>) -> impl Parser<I, Option<O>> {
+    move |input: &mut I| {
+        let past_input = input.clone(); // todo remove ?
         match parser.parse(input) {
             Ok(o) => Ok(Some(o)),
             Err(_) => {

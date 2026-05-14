@@ -1,3 +1,4 @@
+use colored::Colorize;
 use serde_derive::{Deserialize, Serialize};
 use smolscript::{parser::complete::smolscript_parser, structural_eq::StructuralEq};
 use test_each_file::test_each_file;
@@ -29,6 +30,11 @@ fn full_test([file, json_file]: [&str; 2]) {
             let file_parse = file_parse.unwrap_or_else(|err| {
                 panic!("Parsing should success but failed with errors :\n{err}")
             });
+            println!(
+                "{} Parsing, here is the parsed file : {}",
+                "[SUCCESS]".green(),
+                file_parse
+            );
             let file_parse_print = format!("{file_parse}");
             let file_parse_print_parse =
                 smolscript_parser(&file_parse_print).unwrap_or_else(|err| {

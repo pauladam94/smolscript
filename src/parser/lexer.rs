@@ -60,8 +60,8 @@ pub enum Token {
     #[token("/")]
     Div,
 
-    #[regex(r"-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?", |lex| lex.slice().parse::<f64>().unwrap())]
-    Number(f64),
+    #[regex(r"-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?")]
+    Number,
     // #[regex("[a-zA-Z]+")]
     // Identifier,
     #[regex("(_|[a-zA-Z])(_|[0-9]|[a-zA-Z])*")]
@@ -114,7 +114,7 @@ impl Display for Token {
             Token::Sub => write!(f, "-"),
             Token::Mult => write!(f, "*"),
             Token::Div => write!(f, "/"),
-            Token::Number(i) => write!(f, "{i}"),
+            Token::Number => write!(f, "number"),
             Token::Identifier => write!(f, "identifier"),
         }
     }
@@ -126,7 +126,7 @@ fn skip_comments(lexer: &mut Lexer<Token>) -> Skip {
 }
 
 /// A given [Token] implements the Parser trait because of
-impl<'src> Parser<'src, Span<&'src str>> for Token {
+impl<'src> Parser<Lexer<'src, Token>, Span<&'src str>> for Token {
     fn parse(&mut self, input: &mut Lexer<'src, Token>) -> Result<Span<&'src str>, ParseError> {
         match input.next() {
             Some(Ok(t)) => {
@@ -156,7 +156,7 @@ impl<'src> Parser<'src, Span<&'src str>> for Token {
 /// A Given [&str] implements the [Parser] trait
 /// by looking at the next token to see if it's string
 /// representation is the same as the string
-impl<'src> Parser<'src, Pos> for &str {
+impl<'src> Parser<Lexer<'src, Token>, Pos> for &str {
     fn parse(&mut self, input: &mut Lexer<Token>) -> Result<Pos, ParseError> {
         let past_input = input.clone();
         match input.next() {
@@ -188,24 +188,35 @@ impl<'src> Parser<'src, Pos> for &str {
 
 /// Any function of type (&mut Tokens) -> Result<O, ParseError>
 /// implements the [Parser] trait.
-impl<'src, T, O> Parser<'src, O> for T
+impl<I, T, O> Parser<I, O> for T
 where
-    T: FnMut(&mut Lexer<'src, Token>) -> Result<O, ParseError>,
+    T: FnMut(&mut I) -> Result<O, ParseError>,
 {
-    fn parse(&mut self, input: &mut Lexer<'src, Token>) -> Result<O, ParseError> {
+    fn parse(&mut self, input: &mut I) -> Result<O, ParseError> {
         self(input)
     }
 }
-
+  
+/// Any function of type (&mut Tokens) -> Result<O, ParseError>
+/// implements the [Parser] trait.
+// impl<I, T, O> Parser<I, O> for T
+// where
+//     T: Fn(&mut I) -> Result<O, ParseError>,
+// {
+//     fn parse(&mut self, input: &mut I) -> Result<O, ParseError> {
+//         self(input)
+//     }
+// }
 /// [Parser] trait is a trait to write
 /// parser combinators
-pub trait Parser<'src, O> {
-    fn parse(&mut self, input: &mut Lexer<'src, Token>) -> Result<O, ParseError>;
-    fn apply<S, F>(&mut self, mut f: F) -> impl Parser<'src, S>
+pub trait Parser<I, O> {
+    fn parse(&mut self, input: &mut I) -> Result<O, ParseError>;
+
+    fn apply<S, F>(mut self, mut f: F) -> impl Parser<I, S>
     where
-        F: FnMut(O) -> S,
         Self: Sized,
+        F: FnMut(O) -> S,
     {
-        move |input: &mut Lexer<'src, Token>| self.parse(input).map(|o| f(o))
+        move |input: &mut I| self.parse(input).map(|o| f(o))
     }
 }

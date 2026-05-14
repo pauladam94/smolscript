@@ -4,6 +4,7 @@ use crate::{
 };
 use std::fmt::{Display, Formatter, Result};
 
+#[derive(Debug)]
 pub enum Expr<Ident> {
     Variable(Ident),
     /// f(x, y, ...)

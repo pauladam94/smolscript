@@ -2,6 +2,7 @@ use std::fmt::Display;
 
 use crate::structural_eq::StructuralEq;
 
+#[derive(Debug)]
 pub enum Literal {
     /// Empty vector written : `[]`
     EmptyVec,

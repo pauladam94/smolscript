@@ -1,20 +1,20 @@
-use crate::parser::lexer::{Parser, Token};
-use logos::Lexer;
+use crate::parser::lexer::Parser;
 use std::ops::{Bound, RangeBounds};
 
 /// Many Parser
 ///
 /// repeats a given and returns a vector of the input
-pub fn repeat<'src, O, R>(
+pub fn repeat<I, O, R>(
     range: R,
-    mut parser: impl Parser<'src, O>,
+    mut parser: impl Parser<I, O>,
     // init: I,
     // fold: impl FnMut(I, O) -> I,
-) -> impl Parser<'src, Vec<O>>
+) -> impl Parser<I, Vec<O>>
 where
+    I: Clone,
     R: RangeBounds<u16> + std::fmt::Debug,
 {
-    move |input: &mut Lexer<'src, Token>| {
+    move |input: &mut I| {
         let mut res: Vec<O> = vec![];
         let mut i: u16 = 0;
         loop {
@@ -32,10 +32,12 @@ where
                 }
                 Bound::Unbounded => (),
             }
+            let past_input = input.clone();
             match parser.parse(input) {
                 Ok(o) => res.push(o),
                 Err(mut e) => {
                     if range.contains(&i) {
+                        *input = past_input;
                         return Ok(res);
                     }
                     e.errors.push(format!(

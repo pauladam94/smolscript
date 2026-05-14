@@ -1,10 +1,6 @@
 use crate::parser::lexer::CurrentLexerPos;
 use crate::parser::pos::Pos;
-use crate::parser::{
-    error::ParseError,
-    lexer::{Parser, Token},
-};
-use logos::Lexer;
+use crate::parser::{error::ParseError, lexer::Parser};
 
 pub struct Alt<T> {
     parsers: T,
@@ -17,16 +13,18 @@ pub fn alt<T>(parsers: T) -> Alt<T> {
 macro_rules! impl_alt_parser {
     // Entry point
     ($( $name:ident ),+) => {
-        impl<'src, O, $( $name ),+> Parser<'src, O> for Alt<($( $name, )+)>
-        where $( $name: Parser<'src, O>, )+
+        impl<I, O, $( $name ),+> Parser<I, O> for Alt<($( $name, )+)>
+        where I : Clone + CurrentLexerPos, $( $name: Parser<I, O>, )+
         {
             #[allow(non_snake_case)]
-            fn parse(&mut self, input: &mut Lexer<'src, Token>) -> Result<O, ParseError> {
+            fn parse(&mut self, input: &mut I) -> Result<O, ParseError> {
                 let Alt {
                     parsers: ($( $name, )+),
                 } = self;
                 let mut furthest_error = ParseError::EMPTY;
                 let mut furthest_pos = Pos { line: 0, column: 0 };
+                // todo this clone can be avoided
+                let mut furthest_input : I = input.clone();
                 $(
                     {
                         let past_input = input.clone();
@@ -37,6 +35,7 @@ macro_rules! impl_alt_parser {
                                 if input.pos() > furthest_pos {
                                     furthest_pos = input.pos();
                                     furthest_error = e;
+                                    furthest_input = past_input.clone();
                                 }
                                 *input = past_input;
                             }
@@ -48,6 +47,7 @@ macro_rules! impl_alt_parser {
                     format!("All possibilities in an 'alt' combinator failed.
                         The parser that did go the furthest to {}.", furthest_pos)
                 );
+                *input = furthest_input;
                 Err(furthest_error)
             }
         }

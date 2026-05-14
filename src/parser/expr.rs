@@ -1,12 +1,7 @@
 use crate::{
     ast::expr::Expr,
     parser::{
-        block::block_parser,
-        combinator::alt::alt,
-        error::ParseError,
-        lexer::{Parser, Token},
-        op::op_parser,
-        span::Span,
+        block::block_parser, combinator::alt::alt, error::ParseError, lexer::{Parser, Token}, literal::literal_parser, op::op_parser, span::Span
     },
 };
 use logos::Lexer;
@@ -14,6 +9,7 @@ pub fn expr_parser<'src>(
     input: &mut Lexer<'src, Token>,
 ) -> Result<Expr<Span<&'src str>>, ParseError> {
     alt((
+        literal_parser.apply(|l| Expr::Literal(l)),
         ("let", Token::Identifier, "=", block_parser)
             .apply(|(_, var, _, block)| Expr::LetBindings { var, block }),
         ("while", "(", Token::Identifier, ")", "{", block_parser, "}")

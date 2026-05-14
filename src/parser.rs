@@ -8,6 +8,7 @@ pub mod complete;
 pub mod decl;
 pub mod expr;
 
+pub mod literal;
 pub mod op;
 pub mod args;
 pub mod types;
@@ -16,3 +17,7 @@ pub mod types;
 pub mod combinator;
 
 pub mod error;
+
+
+// Utilities
+pub mod annotate;

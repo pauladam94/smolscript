@@ -1,28 +1,33 @@
-use crate::parser::{
-    error::ParseError,
-    lexer::{Parser, Token},
-};
-use logos::Lexer;
+use crate::parser::{error::ParseError, lexer::Parser};
 
 macro_rules! impl_seq_parser {
     ($([$o:ident, $t:ident]),+) => {
-        impl<'src, $($o),+, $($t),+> Parser<'src, ($($o),+)> for ($($t),+)
+        impl<I, $($o),+, $($t),+> Parser<I, ($($o),+)> for ($($t),+)
         where
-            $($t: Parser<'src, $o>),+ ,
+            $($o : std::fmt::Debug),+ ,
+            $($t: Parser<I, $o>),+ ,
         {
             #[allow(non_snake_case)]
-            fn parse(&mut self, input: &mut Lexer<'src, Token>) -> Result<($($o),+), ParseError> {
+            fn parse(&mut self, input: &mut I) -> Result<($($o),+), ParseError> {
                 let ($($t),+) = self;
-                // let result : [MaybeUninit<>; $n] = [MaybeUninit::uninit(); $n];
+                let mut errors : Vec<String> = vec![];
 
-                let mut cpt = 0;
+                let mut cpt : i32 = 0;
 
                 $(
                     cpt += 1;
                     let $t = match $t.parse(input) {
-                        Ok(o) => o,
+                        Ok(o) => {
+                            errors.push(format!("{:?}", o));
+                             o
+                         },
                         Err(mut e) => {
+                            e.errors.push("\n".to_string());
                             e.errors.push(format!("Sequence combinator failed at his {} parser.", cpt));
+                            e.errors.push(format!("But it has worked for the {} parsers before", cpt - 1));
+                            for s in errors {
+                                e.errors.push(format!("\t{s}"));
+                            }
                             return Err(e)
                         },
                     };
@@ -34,15 +39,15 @@ macro_rules! impl_seq_parser {
     () => {};
 }
 
-macro_rules! inverse_tuples {
-    ([$o:ident, $t:ident],) => {
-        [$o, $t],
-    };
-    ([$head_o:ident, $head_t:ident], $([$tail_o:ident, $tail_t:ident],)*) => {
-        inverse_tuples!($([$tail_o, $tail_t],)*) [$head_o, $head_t],
-    };
-    () => {};
-}
+// macro_rules! inverse_tuples {
+//     ([$o:ident, $t:ident],) => {
+//         [$o, $t],
+//     };
+//     ([$head_o:ident, $head_t:ident], $([$tail_o:ident, $tail_t:ident],)*) => {
+//         inverse_tuples!($([$tail_o, $tail_t],)*) [$head_o, $head_t],
+//     };
+//     () => {};
+// }
 
 macro_rules! impl_seq_parser_tuples {
     ([$head_o:ident, $head_t:ident]) => {};

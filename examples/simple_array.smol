@@ -1,0 +1,5 @@
+let x = 1;
+let y = [];
+y.push(x);
+y.push(x);
+y[x]

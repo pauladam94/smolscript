@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 logos = "0.16.1"
 colored = "3"
+annotate-snippets = "0.12.16"
 
 [dev-dependencies]
 test_each_file = "0.3.7"

@@ -1,6 +1,7 @@
 use crate::{ast::expr::Expr, structural_eq::StructuralEq};
 use std::fmt::{Display, Formatter, Result};
 
+#[derive(Debug)]
 pub struct Block<Ident> {
     pub statements: Vec<Expr<Ident>>,
 }
