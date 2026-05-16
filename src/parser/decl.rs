@@ -3,7 +3,7 @@ use crate::{
     parser::{
         args::args_parser,
         block::block_parser,
-        combinator::{opt::opt, preceded::preceded, repeat::repeat},
+        combinator::{cut::cut, opt::opt, preceded::preceded, repeat::repeat},
         error::ParseError,
         lexer::{Parser, Token},
         span::Span,
@@ -19,16 +19,18 @@ pub fn decl_parser<'src>(
         0..,
         (
             "fn",
-            Token::Identifier,
-            "(",
-            args_parser,
-            ")",
-            opt(preceded("->", types_parser)).apply(|t| t.unwrap_or(Types::Unit)),
-            "{",
-            block_parser,
-            "}",
+            cut((
+                Token::Identifier,
+                "(",
+                args_parser,
+                ")",
+                opt(preceded("->", types_parser)).map(|t| t.unwrap_or(Types::Unit)),
+                "{",
+                block_parser,
+                "}",
+            )),
         )
-            .apply(|(_, name, _, args, _, output_type, _, block, _)| Decl {
+            .map(|(_, (name, _, args, _, output_type, _, block, _))| Decl {
                 name,
                 args,
                 block,

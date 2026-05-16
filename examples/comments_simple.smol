@@ -1,0 +1,9 @@
+
+
+fn empty(
+	/* here a more complex comments */
+) {
+	// a pretty simple comments
+}
+
+/* here a comment /* bro */ */

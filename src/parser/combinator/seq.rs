@@ -2,11 +2,13 @@ use crate::parser::{error::ParseError, lexer::Parser};
 
 macro_rules! impl_seq_parser {
     ($([$o:ident, $t:ident]),+) => {
-        impl<I, $($o),+, $($t),+> Parser<I, ($($o),+)> for ($($t),+)
+        impl<I, $($o),+, $($t),+> Parser<I> for ($($t),+)
         where
             $($o : std::fmt::Debug),+ ,
-            $($t: Parser<I, $o>),+ ,
+            $($t: Parser<I, Output=$o>),+ ,
         {
+            type Output =  ($($o),+);
+
             #[allow(non_snake_case)]
             fn parse(&mut self, input: &mut I) -> Result<($($o),+), ParseError> {
                 let ($($t),+) = self;
@@ -22,11 +24,12 @@ macro_rules! impl_seq_parser {
                              o
                          },
                         Err(mut e) => {
-                            e.errors.push("\n".to_string());
-                            e.errors.push(format!("Sequence combinator failed at his {} parser.", cpt));
-                            e.errors.push(format!("But it has worked for the {} parsers before", cpt - 1));
+                            e = e
+                            .with_error("\n".to_string())
+                            .with_error(format!("Sequence combinator failed at his {} parser.", cpt))
+                            .with_error(format!("But it has worked for the {} parsers before", cpt - 1));
                             for s in errors {
-                                e.errors.push(format!("\t{s}"));
+                                e = e.with_error(format!("\t{s}"));
                             }
                             return Err(e)
                         },

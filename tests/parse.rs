@@ -1,6 +1,10 @@
 use colored::Colorize;
+use logos::Logos;
 use serde_derive::{Deserialize, Serialize};
-use smolscript::{parser::complete::smolscript_parser, structural_eq::StructuralEq};
+use smolscript::{
+    parser::{complete::smolscript_parser, lexer::Token},
+    structural_eq::StructuralEq,
+};
 use test_each_file::test_each_file;
 
 test_each_file! { for ["smol", "json"] in "./examples" => full_test }
@@ -27,6 +31,16 @@ fn full_test([file, json_file]: [&str; 2]) {
         .unwrap_or_else(|| panic!("\"parse\" field missing in this json file :\n{}", json_file))
     {
         Pass => {
+            {
+                println!("Here is what the lexer gives you :");
+                let mut input = Token::lexer(file);
+                loop {
+                    match input.next() {
+                        Some(Ok(t)) => println!("-- '{t}'"),
+                        None | Some(Err(())) => break,
+                    }
+                }
+            }
             let file_parse = file_parse.unwrap_or_else(|err| {
                 panic!("Parsing should success but failed with errors :\n{err}")
             });

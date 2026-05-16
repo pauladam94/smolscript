@@ -1,0 +1,8 @@
+
+// simple comments
+
+fn some(y : u64) {
+	
+	y
+
+}

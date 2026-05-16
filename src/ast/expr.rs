@@ -1,5 +1,5 @@
 use crate::{
-    ast::{binop::BinOpKind, block::Block, literal::Literal},
+    ast::{binop::BinOpKind, block::Block, literal::Constant},
     structural_eq::StructuralEq,
 };
 use std::fmt::{Display, Formatter, Result};
@@ -32,14 +32,16 @@ pub enum Expr<Ident> {
         yes: Block<Ident>,
         no: Block<Ident>,
     },
-    /// Constants : [], integer, strings ...
-    Literal(Literal),
+    /// Constants : integer, strings, booleans, unit
+    Constant(Constant),
     /// [lhs] [op] [rhs]
     BinOp {
         op: BinOpKind,
         lhs: Ident,
         rhs: Ident,
     },
+    /// Empty vector written : `[]`
+    EmptyVec,
 }
 
 impl<Ident: Display> Display for Expr<Ident> {
@@ -62,8 +64,9 @@ impl<Ident: Display> Display for Expr<Ident> {
             LetBindings { var, block } => write!(f, "let {var} = {block}"),
             While { cond, block } => write!(f, "while {cond} {block}"),
             If { cond, yes, no } => write!(f, "if ({cond}) {yes} {no}"),
-            Literal(literal) => write!(f, "{literal}"),
+            Constant(literal) => write!(f, "{literal}"),
             BinOp { op, lhs, rhs } => write!(f, "{lhs} {op} {rhs}"),
+            EmptyVec => write!(f, "[]"),
         }
     }
 }
@@ -108,7 +111,8 @@ impl<Ident: StructuralEq> StructuralEq for Expr<Ident> {
                     no: no2,
                 },
             ) => cond.structural_eq(cond2) && yes.structural_eq(yes2) && no.structural_eq(no2),
-            (Literal(literal), Literal(literal2)) => literal.structural_eq(literal2),
+            (Constant(literal), Constant(literal2)) => literal.structural_eq(literal2),
+            (EmptyVec, EmptyVec) => true,
             (_, _) => false,
         }
     }

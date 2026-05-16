@@ -7,8 +7,14 @@ use std::fmt::Display;
 #[logos(skip(r"\n", newline_callback))]
 #[logos(skip(r"[ \t\f]+"))] // Ignore this regex pattern between tokens
 pub enum Token {
-    #[token("(*", skip_comments)]
-    Comments,
+    // #[token("/n", newline_callback)]
+    // NewLine,
+    #[token("/*", skip_multiline_comments)]
+    MultiLineComments,
+    #[token("*/")]
+    EndMultiLineComments,
+    #[token("//", skip_line_comments)]
+    SingleLineComments,
     // KEYWORDS
     #[token("fn")]
     Fn,
@@ -27,6 +33,8 @@ pub enum Token {
     Bool,
 
     // SYMBOLS
+    #[token("=")]
+    Eq,
     #[token(":")]
     Colon,
     #[token(";")]
@@ -49,6 +57,8 @@ pub enum Token {
     Period,
     #[token("^")]
     Carrot,
+    #[token("->")]
+    Arrow,
 
     // Operator
     #[token("+")]
@@ -91,7 +101,10 @@ impl<'src> CurrentLexerPos for Lexer<'src, Token> {
 impl Display for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Token::Comments => write!(f, "comments"),
+            // Token::NewLine => write!(f, "\n"),
+            Token::MultiLineComments => write!(f, "/*"),
+            Token::EndMultiLineComments => write!(f, "*/"),
+            Token::SingleLineComments => write!(f, "//"),
             Token::Fn => write!(f, "fn"),
             Token::Return => write!(f, "return"),
             Token::Let => write!(f, "let"),
@@ -99,6 +112,7 @@ impl Display for Token {
             Token::Float => write!(f, "float"),
             Token::Char => write!(f, "char"),
             Token::Bool => write!(f, "bool"),
+            Token::Eq => write!(f, "="),
             Token::Colon => write!(f, ":"),
             Token::SemiColon => write!(f, ";"),
             Token::Comma => write!(f, ","),
@@ -110,6 +124,7 @@ impl Display for Token {
             Token::BraceClose => write!(f, "}}"),
             Token::Period => write!(f, "."),
             Token::Carrot => write!(f, "^"),
+            Token::Arrow => write!(f, "->"),
             Token::Add => write!(f, "+"),
             Token::Sub => write!(f, "-"),
             Token::Mult => write!(f, "*"),
@@ -120,13 +135,37 @@ impl Display for Token {
     }
 }
 
-fn skip_comments(lexer: &mut Lexer<Token>) -> Skip {
-    // lexer.fold(init, f)
-    Skip {}
+fn skip_multiline_comments(lexer: &mut Lexer<Token>) -> Skip {
+    loop {
+        match lexer.next() {
+            Some(Ok(t)) => {
+                if t == Token::EndMultiLineComments {
+                    return Skip;
+                }
+            }
+            Some(Err(())) | None => return Skip,
+        }
+    }
+}
+fn skip_line_comments(lexer: &mut Lexer<Token>) -> Skip {
+    println!("- Inside skip line");
+    loop {
+        match lexer.next() {
+            Some(Ok(t)) => {
+                println!("Seen this token '{t}'");
+                if lexer.slice() == "\n" {
+                    // if t == Token::NewLine {
+                    return Skip;
+                }
+            }
+            Some(Err(())) | None => return Skip,
+        }
+    }
 }
 
 /// A given [Token] implements the Parser trait because of
-impl<'src> Parser<Lexer<'src, Token>, Span<&'src str>> for Token {
+impl<'src> Parser<Lexer<'src, Token>> for Token {
+    type Output = Span<&'src str>;
     fn parse(&mut self, input: &mut Lexer<'src, Token>) -> Result<Span<&'src str>, ParseError> {
         match input.next() {
             Some(Ok(t)) => {
@@ -136,19 +175,15 @@ impl<'src> Parser<Lexer<'src, Token>, Span<&'src str>> for Token {
                         str: input.slice(),
                     })
                 } else {
-                    Err(ParseError {
-                        errors: vec![format!(
-                            "Got the token '{t}' when waiting for the token '{self}'"
-                        )],
-                    })
+                    Err(ParseError::new().with_error(format!(
+                        "Got the token '{t}' when waiting for the token '{self}'"
+                    )))
                 }
             }
-            Some(Err(_)) | None => Err(ParseError {
-                errors: vec![format!(
-                    "No token anymore when waiting for '{self}' at position : {}",
-                    input.pos()
-                )],
-            }),
+            Some(Err(_)) | None => Err(ParseError::new().with_error(format!(
+                "No token anymore when waiting for '{self}' at position : {}",
+                input.pos()
+            ))),
         }
     }
 }
@@ -156,7 +191,8 @@ impl<'src> Parser<Lexer<'src, Token>, Span<&'src str>> for Token {
 /// A Given [&str] implements the [Parser] trait
 /// by looking at the next token to see if it's string
 /// representation is the same as the string
-impl<'src> Parser<Lexer<'src, Token>, Pos> for &str {
+impl<'src> Parser<Lexer<'src, Token>> for &str {
+    type Output = Pos;
     fn parse(&mut self, input: &mut Lexer<Token>) -> Result<Pos, ParseError> {
         let past_input = input.clone();
         match input.next() {
@@ -164,23 +200,19 @@ impl<'src> Parser<Lexer<'src, Token>, Pos> for &str {
                 if &input.slice() == self {
                     Ok(input.pos())
                 } else {
-                    Err(ParseError {
-                        errors: vec![format!(
-                            "Expected the &str '{}' but got '{}'",
-                            self,
-                            input.slice()
-                        )],
-                    })
+                    Err(ParseError::new().with_error(format!(
+                        "Expected the &str '{}' but got '{}'",
+                        self,
+                        input.slice()
+                    )))
                 }
             }
             Some(Err(())) | None => {
                 *input = past_input;
-                Err(ParseError {
-                    errors: vec![format!(
-                        "Expected the &str '{}' but got no more tokens in stream",
-                        self
-                    )],
-                })
+                Err(ParseError::new().with_error(format!(
+                    "Expected the &str '{}' but got no more tokens in stream",
+                    self
+                )))
             }
         }
     }
@@ -188,35 +220,47 @@ impl<'src> Parser<Lexer<'src, Token>, Pos> for &str {
 
 /// Any function of type (&mut Tokens) -> Result<O, ParseError>
 /// implements the [Parser] trait.
-impl<I, T, O> Parser<I, O> for T
+impl<I, O, T> Parser<I> for T
 where
     T: FnMut(&mut I) -> Result<O, ParseError>,
 {
+    type Output = O;
     fn parse(&mut self, input: &mut I) -> Result<O, ParseError> {
         self(input)
     }
 }
-  
-/// Any function of type (&mut Tokens) -> Result<O, ParseError>
-/// implements the [Parser] trait.
-// impl<I, T, O> Parser<I, O> for T
-// where
-//     T: Fn(&mut I) -> Result<O, ParseError>,
-// {
-//     fn parse(&mut self, input: &mut I) -> Result<O, ParseError> {
-//         self(input)
-//     }
-// }
+
 /// [Parser] trait is a trait to write
 /// parser combinators
-pub trait Parser<I, O> {
-    fn parse(&mut self, input: &mut I) -> Result<O, ParseError>;
+pub trait Parser<I> {
+    type Output;
+    fn parse(&mut self, input: &mut I) -> Result<Self::Output, ParseError>;
 
-    fn apply<S, F>(mut self, mut f: F) -> impl Parser<I, S>
+    fn map<F, S>(self, f: F) -> Map<Self, F>
+    // impl Parser<I, Output = S>
     where
+        F: Fn(Self::Output) -> S,
         Self: Sized,
-        F: FnMut(O) -> S,
     {
-        move |input: &mut I| self.parse(input).map(|o| f(o))
+        // move |input: &mut I| self.parse(input).map(|o| f(o))
+        Map { parser: self, f }
+    }
+}
+
+#[derive(Clone)]
+pub struct Map<P, F> {
+    parser: P,
+    f: F,
+}
+
+impl<I, F, S, O, P> Parser<I> for Map<P, F>
+where
+    P: Parser<I, Output = O>,
+    F: Fn(O) -> S,
+{
+    type Output = S;
+
+    fn parse(&mut self, input: &mut I) -> Result<Self::Output, ParseError> {
+        self.parser.parse(input).map(|o| (self.f)(o))
     }
 }

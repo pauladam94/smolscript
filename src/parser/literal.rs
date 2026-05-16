@@ -1,17 +1,15 @@
 use crate::{
-    ast::literal::Literal,
+    ast::literal::Constant,
     parser::{
         combinator::alt::alt,
-        error::ParseError,
         lexer::{Parser, Token},
     },
 };
 use logos::Lexer;
 
-pub fn literal_parser<'src>(input: &mut Lexer<'src, Token>) -> Result<Literal, ParseError> {
+pub fn literal_parser<'src>() -> impl Parser<Lexer<'src, Token>, Output = Constant> {
     alt((
-        ("(", ")").apply(|_| Literal::Unit),
-        Token::Number.apply(|span| Literal::Float(span.str.parse::<f64>().unwrap())),
+        ("(", ")").map(|_| Constant::Unit),
+        Token::Number.map(|span| Constant::Float(span.str.parse::<f64>().unwrap())),
     ))
-    .parse(input)
 }

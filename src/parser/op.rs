@@ -17,8 +17,8 @@ pub fn op_parser<'src>(
 ) -> Result<Expr<Span<&'src str>>, ParseError> {
     use Token::Identifier;
     alt((
-        (Identifier, "+", Identifier).apply(|(lhs, _, rhs)| Expr::BinOp { op: Add, lhs, rhs }),
-        (Identifier, "-", Identifier).apply(|(lhs, _, rhs)| Expr::BinOp { op: Sub, lhs, rhs }),
+        (Identifier, "+", Identifier).map(|(lhs, _, rhs)| Expr::BinOp { op: Add, lhs, rhs }),
+        (Identifier, "-", Identifier).map(|(lhs, _, rhs)| Expr::BinOp { op: Sub, lhs, rhs }),
     ))
     .parse(input)
 }

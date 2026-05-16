@@ -2,6 +2,7 @@ use crate::parser::lexer::CurrentLexerPos;
 use crate::parser::pos::Pos;
 use crate::parser::{error::ParseError, lexer::Parser};
 
+#[derive(Clone)]
 pub struct Alt<T> {
     parsers: T,
 }
@@ -13,11 +14,12 @@ pub fn alt<T>(parsers: T) -> Alt<T> {
 macro_rules! impl_alt_parser {
     // Entry point
     ($( $name:ident ),+) => {
-        impl<I, O, $( $name ),+> Parser<I, O> for Alt<($( $name, )+)>
-        where I : Clone + CurrentLexerPos, $( $name: Parser<I, O>, )+
+        impl<I, O, $( $name ),+> Parser<I> for Alt<($( $name, )+)>
+        where I : Clone + CurrentLexerPos, $( $name: Parser<I, Output = O>, )+
         {
+            type Output = O;
             #[allow(non_snake_case)]
-            fn parse(&mut self, input: &mut I) -> Result<O, ParseError> {
+            fn parse(&mut self, input: &mut I) -> Result<Self::Output, ParseError> {
                 let Alt {
                     parsers: ($( $name, )+),
                 } = self;
@@ -43,12 +45,9 @@ macro_rules! impl_alt_parser {
                     }
                 )+
 
-                furthest_error.errors.push(
-                    format!("All possibilities in an 'alt' combinator failed.
-                        The parser that did go the furthest to {}.", furthest_pos)
-                );
                 *input = furthest_input;
-                Err(furthest_error)
+                Err(furthest_error.with_error(format!("All possibilities in an 'alt' combinator failed.
+                        The parser that did go the furthest to {}.", furthest_pos)))
             }
         }
     };
