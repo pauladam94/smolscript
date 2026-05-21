@@ -1,3 +1,4 @@
+
 pub mod lexer;
 pub mod pos;
 pub mod span;
@@ -8,6 +9,7 @@ pub mod complete;
 pub mod decl;
 pub mod expr;
 
+pub mod index;
 pub mod literal;
 pub mod op;
 pub mod args;

@@ -52,7 +52,7 @@ impl Display for ParseErrorKind {
             ParseErrorKind::Complete => write!(f, "complete"),
             ParseErrorKind::Error => write!(f, "error"),
             ParseErrorKind::Unknown => write!(f, "unkown"),
-            ParseErrorKind::Unrecoverable => todo!(),
+            ParseErrorKind::Unrecoverable => write!(f, "unrecovarable"),
         }
     }
 }

@@ -1,12 +1,19 @@
 use crate::{
-    ast::{binop::BinOpKind, block::Block, literal::Constant},
+    ast::{binop::BinOpKind, block::Block, index::Index, literal::Constant},
     structural_eq::StructuralEq,
 };
 use std::fmt::{Display, Formatter, Result};
 
 #[derive(Debug)]
 pub enum Expr<Ident> {
-    Variable(Ident),
+    // x or x[y] or x[y][z] ...
+    Index(Index<Ident>),
+    // Variable(Ident),
+    MethodCall {
+        index: Index<Ident>,
+        name: Ident,
+        args: Vec<Ident>,
+    },
     /// f(x, y, ...)
     /// The builtin ones are :
     /// - x.replace(b)
@@ -48,8 +55,16 @@ impl<Ident: Display> Display for Expr<Ident> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         use Expr::*;
         match self {
-            Variable(var) => {
-                write!(f, "{var}")
+            Index(index) => write!(f, "{index}"),
+            MethodCall { index, name, args } => {
+                write!(f, "{index}.{name}(")?;
+                for (i, arg) in args.iter().enumerate() {
+                    write!(f, "{arg}")?;
+                    if i != args.iter().len() - 1 {
+                        write!(f, ", ")?;
+                    }
+                }
+                write!(f, ")")
             }
             FunCall { name: fun, args } => {
                 write!(f, "{fun}(")?;
@@ -64,7 +79,7 @@ impl<Ident: Display> Display for Expr<Ident> {
             LetBindings { var, block } => write!(f, "let {var} = {block}"),
             While { cond, block } => write!(f, "while {cond} {block}"),
             If { cond, yes, no } => write!(f, "if ({cond}) {yes} {no}"),
-            Constant(literal) => write!(f, "{literal}"),
+            Constant(constant) => write!(f, "{constant}"),
             BinOp { op, lhs, rhs } => write!(f, "{lhs} {op} {rhs}"),
             EmptyVec => write!(f, "[]"),
         }
@@ -75,7 +90,11 @@ impl<Ident: StructuralEq> StructuralEq for Expr<Ident> {
     fn structural_eq(&self, rhs: &Self) -> bool {
         use Expr::*;
         match (self, rhs) {
-            (Variable(v1), Variable(v2)) => v1.structural_eq(v2),
+            (
+                Index(index), Index(index2)) => {
+                    index.structural_eq(index2)
+                }
+            
             (
                 FunCall { name: fun, args },
                 FunCall {

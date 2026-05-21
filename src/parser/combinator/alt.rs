@@ -34,6 +34,10 @@ macro_rules! impl_alt_parser {
                         match $name.parse(input) {
                             Ok(o) => return Ok(o),
                             Err(e) => {
+                                if e.is_cut() {
+                                    // todo better handlings of fursthest parser
+                                    return Err(e);
+                                }
                                 if input.pos() > furthest_pos {
                                     furthest_pos = input.pos();
                                     furthest_error = e;

@@ -1,8 +1,7 @@
 use colored::Colorize;
-use logos::Logos;
 use serde_derive::{Deserialize, Serialize};
 use smolscript::{
-    parser::{complete::smolscript_parser, lexer::Token},
+    interpreter::interpreter::Interpreter, parser::complete::smolscript_parser,
     structural_eq::StructuralEq,
 };
 use test_each_file::test_each_file;
@@ -18,7 +17,7 @@ enum TestType {
 #[derive(Serialize, Deserialize)]
 struct TestInfo {
     parse: Option<TestType>,
-    exec: Option<TestType>,
+    output: Option<String>,
 }
 
 fn full_test([file, json_file]: [&str; 2]) {
@@ -32,20 +31,20 @@ fn full_test([file, json_file]: [&str; 2]) {
     {
         Pass => {
             {
-                println!("Here is what the lexer gives you :");
-                let mut input = Token::lexer(file);
-                loop {
-                    match input.next() {
-                        Some(Ok(t)) => println!("-- '{t}'"),
-                        None | Some(Err(())) => break,
-                    }
-                }
+                // println!("Here is what the lexer gives you :");
+                // let mut input = Token::lexer(file);
+                // loop {
+                //     match input.next() {
+                //         Some(Ok(t)) => println!("-- '{t}'"),
+                //         None | Some(Err(())) => break,
+                //     }
+                // }
             }
             let file_parse = file_parse.unwrap_or_else(|err| {
                 panic!("Parsing should success but failed with errors :\n{err}")
             });
             println!(
-                "{} Parsing, here is the parsed file : {}",
+                "{} Parsing, here is the parsed file :\n{}\n---",
                 "[SUCCESS]".green(),
                 file_parse
             );
@@ -58,10 +57,26 @@ fn full_test([file, json_file]: [&str; 2]) {
                 });
             if !file_parse_print_parse.structural_eq(&file_parse) {
                 panic!(
-                    "Printing then parsing again does not give the (structural) same AST.\n>> First Parsing :\n{}\n>> Second Parsing : \n{}",
-                    file_parse, file_parse_print_parse
+                    "Printing then parsing again does not give the (structural) same AST.\n>> Second Parsing : \n{}",
+                    file_parse_print_parse
                 )
             }
+
+            // Output check
+            let expected_string = test_info.output.unwrap_or_else(|| {
+                panic!(
+                    "\"output\" field missing in this json file :\n{}",
+                    json_file
+                )
+            });
+            let expected_value = smolscript_parser(&expected_string)
+                .unwrap_or_else(|err| {
+                    panic!("Parsing should success but failed with errors :\n{err}")
+                })
+                .get_value()
+                .unwrap_or_else(|| panic!("\"output\" field should parse to a value"));
+
+            let interpreter = Interpreter::new(file_parse);
         }
         Fail => {
             if let Ok(ast) = file_parse {

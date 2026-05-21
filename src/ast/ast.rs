@@ -1,8 +1,9 @@
 use crate::{
-    ast::{block::Block, decl::Decl},
+    ast::{block::Block, decl::Decl, expr::Expr},
+    interpreter::value::Value,
     structural_eq::StructuralEq,
 };
-use std::fmt::Display;
+use std::{fmt::Display, ops::Index};
 
 /// Complete AST of a program
 pub struct Ast<Ident> {
@@ -30,5 +31,20 @@ impl<Ident: StructuralEq> StructuralEq for Ast<Ident> {
             }
         }
         true
+    }
+}
+
+impl<Ident> Ast<Ident> {
+    pub fn get_value(mut self) -> Option<Value> {
+        // todo also support array get value and see how to do it ...
+        if self.block.statements.len() != 1 {
+            return None;
+        }
+
+        if let Expr::Constant(c) = self.block.statements.remove(0) {
+            Some(Value::Constant(c))
+        } else {
+            None
+        }
     }
 }

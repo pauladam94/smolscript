@@ -2,13 +2,19 @@ use crate::parser::{error::ParseError, pos::Pos, span::Span};
 use logos::{Lexer, Logos, Skip};
 use std::fmt::Display;
 
+#[derive(Default, Clone)]
+pub struct LexerState {
+    pos: Pos,
+    seen_new_line: bool,
+}
+
 #[derive(Logos, Debug, PartialEq, Clone)]
-#[logos(extras = Pos)]
-#[logos(skip(r"\n", newline_callback))]
+#[logos(extras = LexerState)]
+// #[logos(skip(r"\n", newline_callback))]
 #[logos(skip(r"[ \t\f]+"))] // Ignore this regex pattern between tokens
 pub enum Token {
-    // #[token("/n", newline_callback)]
-    // NewLine,
+    #[token("\n", newline_callback)]
+    NewLine,
     #[token("/*", skip_multiline_comments)]
     MultiLineComments,
     #[token("*/")]
@@ -33,6 +39,8 @@ pub enum Token {
     Bool,
 
     // SYMBOLS
+    #[token("!=")]
+    Neq,
     #[token("=")]
     Eq,
     #[token(":")]
@@ -80,8 +88,9 @@ pub enum Token {
 
 /// Update the line count and the char index.
 fn newline_callback(lex: &mut Lexer<Token>) -> Skip {
-    lex.extras.line += 1;
-    lex.extras.column = lex.span().end as u32;
+    lex.extras.pos.line += 1;
+    lex.extras.pos.column = lex.span().end as u32;
+    lex.extras.seen_new_line = true;
     Skip
 }
 
@@ -92,8 +101,8 @@ pub trait CurrentLexerPos {
 impl<'src> CurrentLexerPos for Lexer<'src, Token> {
     fn pos(&self) -> Pos {
         Pos {
-            line: self.extras.line,
-            column: self.span().end as u32 - self.extras.column,
+            line: self.extras.pos.line,
+            column: self.span().end as u32 - self.extras.pos.column,
         }
     }
 }
@@ -101,7 +110,7 @@ impl<'src> CurrentLexerPos for Lexer<'src, Token> {
 impl Display for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            // Token::NewLine => write!(f, "\n"),
+            Token::NewLine => write!(f, "\n"),
             Token::MultiLineComments => write!(f, "/*"),
             Token::EndMultiLineComments => write!(f, "*/"),
             Token::SingleLineComments => write!(f, "//"),
@@ -112,6 +121,7 @@ impl Display for Token {
             Token::Float => write!(f, "float"),
             Token::Char => write!(f, "char"),
             Token::Bool => write!(f, "bool"),
+            Token::Neq => write!(f, "!="),
             Token::Eq => write!(f, "="),
             Token::Colon => write!(f, ":"),
             Token::SemiColon => write!(f, ";"),
@@ -147,16 +157,26 @@ fn skip_multiline_comments(lexer: &mut Lexer<Token>) -> Skip {
         }
     }
 }
-fn skip_line_comments(lexer: &mut Lexer<Token>) -> Skip {
-    println!("- Inside skip line");
+fn skip_line_comments(input: &mut Lexer<Token>) -> Skip {
+    input.extras.seen_new_line = false;
+    println!("- Inside skip line comments");
+
     loop {
-        match lexer.next() {
+        let past_input = input.clone();
+        match input.next() {
             Some(Ok(t)) => {
-                println!("Seen this token '{t}'");
-                if lexer.slice() == "\n" {
-                    // if t == Token::NewLine {
+                println!(
+                    "Seen this token '{t}' | new_line : {}",
+                    input.extras.seen_new_line
+                );
+                if input.extras.seen_new_line {
+                    *input = past_input;
                     return Skip;
                 }
+                // if lexer.slice() == "\n" {
+                //     // if t == Token::NewLine {
+                //     return Skip;
+                // }
             }
             Some(Err(())) | None => return Skip,
         }
