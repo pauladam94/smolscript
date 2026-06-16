@@ -1,4 +1,4 @@
-use crate::{AST, Block, Decl};
+use crate::{AST, Decl, Expr};
 use cst::cst::CST;
 
 impl<'src> From<CST<'src>> for AST {
@@ -6,7 +6,7 @@ impl<'src> From<CST<'src>> for AST {
         let CST { top_level, block } = cst;
         AST {
             top_level: top_level.into_iter().map(|decl| Decl::from(decl)).collect(),
-            block: Block::from(block),
+            block: Expr::from(block),
         }
     }
 }

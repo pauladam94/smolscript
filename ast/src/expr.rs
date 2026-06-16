@@ -1,5 +1,5 @@
-use crate::{Binary, Block, Constant, Expr, Index, Method, Types, Unary};
-use cst::expr::CSTExpr;
+use crate::{Binary, Constant, Expr, Index, Method, Types, Unary};
+use cst::{block::CSTBlock, expr::CSTExpr};
 use std::{
     collections::VecDeque,
     fmt::{Display, Formatter},
@@ -42,13 +42,34 @@ impl Display for Expr {
             Expr::UnaryOp { lhs: var, op } => write!(f, "{op} {var}"),
             Expr::Constant(constant) => write!(f, "{constant}"),
             Expr::EmptyVec => write!(f, "[]"),
-            Expr::Block(block) => write!(f, "{block}"),
+            Expr::Block(block) => {
+                let mut iter = block.iter();
+                if let Some(expr) = iter.next() {
+                    write!(f, "{expr}")?;
+                    for expr in iter {
+                        write!(f, ";\n{expr}")?;
+                    }
+                }
+                Ok(())
+            }
         }
     }
 }
 
-impl<'src> From<CSTExpr<'src>> for Expr {
-    fn from(expr: CSTExpr<'src>) -> Self {
+impl From<CSTBlock<'_>> for Expr {
+    fn from(block: CSTBlock<'_>) -> Self {
+        let CSTBlock { statements } = block;
+        Expr::Block(
+            statements
+                .into_iter()
+                .map(|expr| Expr::from(expr))
+                .collect(),
+        )
+    }
+}
+
+impl From<CSTExpr<'_>> for Expr {
+    fn from(expr: CSTExpr<'_>) -> Self {
         match expr {
             CSTExpr::Index(cstindex) => Expr::Index(Index::from(cstindex)),
             CSTExpr::MethodCall {
@@ -70,7 +91,7 @@ impl<'src> From<CSTExpr<'src>> for Expr {
                         Expr::LetBindings {
                             var: format!("tmp_{i}"),
                             t: Types::UNIT,
-                            block: Block::from(block),
+                            block: Box::new(Expr::from(block)),
                         }
                     })
                     .collect();
@@ -78,22 +99,22 @@ impl<'src> From<CSTExpr<'src>> for Expr {
                     name: name.to_string(),
                     args: (0..n).into_iter().map(|i| format!("tmp_{i}")).collect(),
                 });
-                Expr::Block(Block { statements })
+                Expr::Block(statements)
             }
             CSTExpr::LetBindings { var, block } => Expr::LetBindings {
                 var: var.to_string(),
                 // todo the right type
                 t: Types::UNIT,
-                block: Block::from(block),
+                block: Box::new(Expr::from(block)),
             },
             CSTExpr::While { cond, block } => Expr::While {
                 cond: cond.to_string(),
-                block: Block::from(block),
+                block: Box::new(Expr::from(block)),
             },
             CSTExpr::If { cond, yes, no } => Expr::If {
                 cond: cond.to_string(),
-                yes: Block::from(yes),
-                no: Block::from(no),
+                yes: Box::new(Expr::from(yes)),
+                no: Box::new(Expr::from(no)),
             },
             CSTExpr::Constant(constant) => Expr::Constant(Constant::from(constant)),
             CSTExpr::BinaryOp { lhs, op, rhs } => Expr::BinaryOp {

@@ -24,7 +24,7 @@ impl Interpreter {
         Self {
             step: 0,
             top_level,
-            current: State::Block(block),
+            current: State::Block(VecDeque::from([block])),
             continuation: ContinuationStack::EMPTY,
             memory: Memory::EMPTY,
         }
@@ -86,7 +86,7 @@ impl Interpreter {
                 let addr = memory.alloc();
                 Some(State::Value(Value::Address(addr)))
             }
-            Expr::Block(block) => todo!(),
+            Expr::Block(block) => Some(State::Block(std::mem::take(block))),
         }
     }
 }
@@ -110,18 +110,20 @@ impl Iterator for Interpreter {
             return None;
         }
         match current {
-            State::Block(block) => match block.statements.len() {
+            State::Block(block) => match block.len() {
                 0 => {
                     *current = State::Value(Value::Constant(Constant::Unit));
                     Some(())
                 }
                 1 => {
-                    let expr = block.statements.pop_front().unwrap();
-                    *current = State::Expr(expr);
+                    let mut expr = block.pop_front().unwrap();
+                    if let Some(new_state) = Self::step_expr(&mut expr, memory) {
+                        *current = new_state
+                    }
                     Some(())
                 }
                 _ => {
-                    let expr = block.statements.pop_front().unwrap();
+                    let expr = block.pop_front().unwrap();
                     if let Expr::LetBindings {
                         var,
                         block: block_let,
@@ -132,22 +134,16 @@ impl Iterator for Interpreter {
                             var,
                             block: std::mem::take(block),
                         });
-                        *current = State::Block(block_let);
+                        *current = State::Block(VecDeque::from([*block_let]));
                     } else {
                         continuation
                             .stack
                             .push(Continuation::BlockCont(std::mem::take(block)));
-                        *current = State::Expr(expr);
+                        *current = State::Block(VecDeque::from([expr]));
                     }
                     Some(())
                 }
             },
-            State::Expr(expr) => {
-                if let Some(new_state) = Self::step_expr(expr, memory) {
-                    *current = new_state
-                }
-                Some(())
-            }
             State::Value(value) => {
                 if continuation.stack.len() == 0 {
                     None

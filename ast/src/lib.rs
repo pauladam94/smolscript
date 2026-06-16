@@ -11,7 +11,7 @@ use std::collections::VecDeque;
 /// - or inferred by the type checker
 pub struct AST {
     pub top_level: VecDeque<Decl>,
-    pub block: Block,
+    pub block: Expr,
 }
 pub mod ast;
 
@@ -19,15 +19,15 @@ pub struct Decl {
     name: String,
     args: VecDeque<(String, Types)>,
     output_type: Types,
-    block: Block,
+    block: Expr,
 }
 pub mod decl;
 
-#[derive(Default)]
-pub struct Block {
-    pub statements: VecDeque<Expr>,
-}
-pub mod block;
+// #[derive(Default)]
+// pub struct Block {
+//     pub statements: VecDeque<Expr>,
+// }
+// pub mod block;
 
 pub struct Types {
     depth: u8,
@@ -58,16 +58,16 @@ pub enum Expr {
     LetBindings {
         var: String,
         t: Types,
-        block: Block,
+        block: Box<Expr>,
     },
     While {
         cond: String,
-        block: Block,
+        block: Box<Expr>,
     },
     If {
         cond: String,
-        yes: Block,
-        no: Block,
+        yes: Box<Expr>,
+        no: Box<Expr>,
     },
     BinaryOp {
         lhs: String,
@@ -78,7 +78,7 @@ pub enum Expr {
         lhs: String,
         op: Unary,
     },
-    Block(Block),
+    Block(VecDeque<Expr>),
     Constant(Constant),
     EmptyVec,
 }

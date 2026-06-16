@@ -1,4 +1,4 @@
-use crate::{Block, Decl, Types};
+use crate::{Decl, Expr, Types};
 use cst::decl::CSTDecl;
 
 impl<'src> From<CSTDecl<'src>> for Decl {
@@ -17,7 +17,7 @@ impl<'src> From<CSTDecl<'src>> for Decl {
                 .map(|(var, t)| (var.to_string(), Types::from(t)))
                 .collect(),
             output_type: Types::from(output_type),
-            block: Block::from(block),
+            block: Expr::from(block),
         }
     }
 }

@@ -7,3 +7,4 @@ edition = "2024"
 ast = { path = "../ast" }
 ratatui = "0.30.1"
 colored = "3"
+itertools = "0.14.0"

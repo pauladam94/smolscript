@@ -1,18 +1,20 @@
 use crate::value::Value;
-use ast::{Block, Expr};
-use std::fmt::Display;
+use ast::Expr;
+use itertools::Itertools;
+use std::{
+    collections::VecDeque,
+    fmt::{Display, Formatter},
+};
 
 pub enum State {
-    Block(Block),
-    Expr(Expr),
+    Block(VecDeque<Expr>),
     Value(Value),
 }
 
 impl Display for State {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         match self {
-            State::Block(block) => write!(f, "Block : {block}"),
-            State::Expr(expr) => write!(f, "Expr : {expr}"),
+            State::Block(block) => write!(f, "Block : {}", block.iter().format(";\n")),
             State::Value(value) => write!(f, "Val : {value}"),
         }
     }
