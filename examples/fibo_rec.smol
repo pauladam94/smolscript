@@ -1,8 +1,8 @@
-fn fibo(n : u64) -> u64 {
+fn fibo(n : u16) -> u16 {
 	aux(n, 1, 1)
 }
 
-fn aux(n : u64, acc1 : u64, acc2 : u64) -> u64 {
+fn aux(n : u16, acc1 : u16, acc2 : u16) -> u16 {
 	if n == 0 {
 		acc2
 	} else {

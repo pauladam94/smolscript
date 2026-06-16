@@ -1,7 +1,7 @@
 
 // simple comments
 
-fn some(y : u64) {
+fn some(y : u8) {
 	
 	y
 

@@ -1,0 +1,10 @@
+[package]
+name = "checker"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+cst = { path = "../cst" }
+
+# Annotation tools to have nice errors on code
+annotate-snippets = "0.12.16"

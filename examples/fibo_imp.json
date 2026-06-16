@@ -1,4 +1,5 @@
 {
   "parse": "Pass",
+  "check": "Pass",
   "output": "46368"
 }

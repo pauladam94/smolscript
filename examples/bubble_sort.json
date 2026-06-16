@@ -1,3 +1,5 @@
 {
-  "parse": "Pass"
+  "parse": "Pass",
+  "check": "Pass",
+  "output": "let x = []; x.push(0); x.push(2); x.push(12); x.push(13); x.push(42); x"
 }
