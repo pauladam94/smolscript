@@ -1,4 +1,4 @@
-use crate::parser::{error::ParseError, lexer::Parser};
+use crate::parser::{Parser, error::ParseError};
 
 pub fn cut<P>(parser: P) -> Cut<P> {
     Cut { parser }

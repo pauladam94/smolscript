@@ -50,11 +50,12 @@ fn full_test([file, json_file]: [&str; 2]) {
             );
             let file_parse_print = format!("{file_parse}");
             let file_parse_print_parse = cst_parser(&file_parse_print).unwrap_or_else(|err| {
-                panic!("Parsing of the printed AST should success but failed with errors :\n{err}")
+                panic!("Parsing of the printed CST should success but failed with errors :\n{err}")
             });
             if !file_parse_print_parse.structural_eq(&file_parse) {
                 panic!(
-                    "Printing then parsing again does not give the (structural) same AST.\n>> Second Parsing : \n{}",
+                    "{}Printing then parsing again does not give the (structural) same AST.\n>> Second Parsing : \n{}",
+                    "[ERROR]".red(),
                     file_parse_print_parse
                 )
             }

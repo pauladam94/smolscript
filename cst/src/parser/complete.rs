@@ -1,11 +1,8 @@
 use crate::{
     cst::CST,
+    lexer::Token,
     parser::{
-        annotate::annotate,
-        block::block_parser,
-        decl::decl_parser,
-        error::ParseError,
-        lexer::{Parser, Token},
+        Parser, annotate::annotate, block::block_parser, decl::decl_parser, error::ParseError,
     },
 };
 use logos::{Lexer, Logos};

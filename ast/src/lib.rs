@@ -16,10 +16,10 @@ pub struct AST {
 pub mod ast;
 
 pub struct Decl {
-    name: String,
-    args: VecDeque<(String, Types)>,
-    output_type: Types,
-    block: Expr,
+    pub name: String,
+    pub args: VecDeque<(String, Types)>,
+    pub output_type: Types,
+    pub block: Expr,
 }
 pub mod decl;
 
@@ -29,12 +29,14 @@ pub mod decl;
 // }
 // pub mod block;
 
+#[derive(Clone)]
 pub struct Types {
     depth: u8,
     basic: BasicTypes,
 }
 pub mod types;
 
+#[derive(Clone)]
 pub enum BasicTypes {
     U16,
     U8,
@@ -44,6 +46,7 @@ pub enum BasicTypes {
 pub mod basic_types;
 
 /// Owned Expression of the AST.
+#[derive(Clone)]
 pub enum Expr {
     Index(Index),
     MethodCall {
@@ -58,16 +61,16 @@ pub enum Expr {
     LetBindings {
         var: String,
         t: Types,
-        block: Box<Expr>,
+        block: VecDeque<Expr>,
     },
     While {
         cond: String,
-        block: Box<Expr>,
+        block: VecDeque<Expr>,
     },
     If {
         cond: String,
-        yes: Box<Expr>,
-        no: Box<Expr>,
+        yes: VecDeque<Expr>,
+        no: VecDeque<Expr>,
     },
     BinaryOp {
         lhs: String,
@@ -84,13 +87,14 @@ pub enum Expr {
 }
 pub mod expr;
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Index {
     pub var: String,
     pub index: VecDeque<String>,
 }
 pub mod index;
 
+#[derive(Clone)]
 pub enum Method {
     Push,
     Pop,
@@ -98,6 +102,7 @@ pub enum Method {
 }
 pub mod method;
 
+#[derive(Clone)]
 pub enum Binary {
     Add,
     Sub,
@@ -108,6 +113,7 @@ pub enum Binary {
 }
 pub mod binary;
 
+#[derive(Clone)]
 pub enum Unary {
     Not,
 }

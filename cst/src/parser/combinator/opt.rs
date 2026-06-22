@@ -1,4 +1,4 @@
-use crate::parser::{error::ParseError, lexer::Parser};
+use crate::parser::{Parser, error::ParseError};
 
 pub fn opt<P, I, O>(parser: P) -> impl Parser<I, Output = Option<O>>
 where

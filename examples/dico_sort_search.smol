@@ -1,0 +1,43 @@
+// Sorts a array of integers returning the sorted array
+fn sort(dico: [u8]) -> [u8] {
+	while (cpt != dico.len()) {
+	}
+}	
+
+fn _search(t : [u8], x : u8, start : u8, end : u8) {
+    if (start == end) {
+        false
+    } else {
+        let mid = (start + end) / 2;
+        if (t[mid] == x) {
+            true
+        } else if (t[mid] < x) {
+            _search(t, x, mid + 1, end)
+        } else {
+            _search(t, x, start, mid)
+		}
+	}
+}
+
+// Does a dichotomic search on a sorted array of integers.
+fn search(dico: [u8], word: u8) -> [u8] {
+	_search(dico, word, 0, dico.len())
+}
+
+
+let dico = [];
+
+dico.push(3);
+dico.push(2);
+dico.push(8);
+dico.push(20);
+dico.push(40);
+dico.push(4);
+
+let new_dico = sort(dico);
+let tmp = dico.replace(new_dico);
+
+if (search()) {
+}
+
+

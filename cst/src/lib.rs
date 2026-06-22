@@ -1,7 +1,7 @@
+pub mod lexer;
 pub mod parser;
+pub mod parser_combinator;
 
-pub mod binop;
-pub mod cst;
 
 #[derive(Debug, Clone)]
 pub enum CSTUnary {
@@ -10,6 +10,8 @@ pub enum CSTUnary {
 pub mod unary;
 
 
+pub mod binop;
+pub mod cst;
 pub mod block;
 pub mod decl;
 pub mod expr;

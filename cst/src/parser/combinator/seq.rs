@@ -1,4 +1,4 @@
-use crate::parser::{error::ParseError, lexer::Parser};
+use crate::parser::{error::ParseError, Parser};
 
 macro_rules! impl_seq_parser {
     ($([$o:ident, $t:ident]),+) => {

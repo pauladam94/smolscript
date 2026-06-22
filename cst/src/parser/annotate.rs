@@ -1,4 +1,4 @@
-use crate::parser::lexer::Token;
+use crate::lexer::Token;
 use annotate_snippets::{AnnotationKind, Level, Renderer, Snippet};
 use logos::Lexer;
 

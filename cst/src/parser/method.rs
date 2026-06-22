@@ -1,9 +1,7 @@
 use crate::{
-    method::CSTMethod, parser::{
-        combinator::alt::alt,
-        error::ParseError,
-        lexer::{Parser, Token},
-    }
+    lexer::Token,
+    method::CSTMethod,
+    parser::{Parser, combinator::alt::alt, error::ParseError},
 };
 use logos::Lexer;
 

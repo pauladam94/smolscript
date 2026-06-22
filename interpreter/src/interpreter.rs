@@ -1,5 +1,6 @@
-use ast::{AST, Constant, Decl, Expr, Method};
+use ast::{AST, Constant, Decl, Expr, Index, Method};
 use colored::Colorize;
+use itertools::Itertools;
 use std::{
     collections::VecDeque,
     fmt::{Display, Formatter},
@@ -44,7 +45,11 @@ impl Interpreter {
 }
 
 impl Interpreter {
-    pub fn step_expr(expr: &mut Expr, memory: &mut Memory) -> Option<State> {
+    pub fn step_expr(
+        expr: &mut Expr,
+        memory: &mut Memory,
+        top_level: &VecDeque<Decl>,
+    ) -> Option<State> {
         match expr {
             Expr::Index(index) => Some(State::Value(memory.index_value(std::mem::take(index)))),
             Expr::MethodCall {
@@ -71,9 +76,27 @@ impl Interpreter {
                     None
                 }
             },
-            Expr::FunCall { name, args } => None,
+            Expr::FunCall { name, args } => {
+                let fun_decl = top_level
+                    .iter()
+                    .find(|decl| &decl.name == name)
+                    .expect(&format!(""));
+                let mut block = VecDeque::from([]);
+                block.push_front(fun_decl.block.clone());
+
+                for (var_call, (var_arg, t)) in args.iter().zip(fun_decl.args.iter()) {
+                    block.push_front(Expr::LetBindings {
+                        var: var_call.clone(),
+                        t: t.clone(),
+                        block: VecDeque::from([Expr::Index(Index::var(var_arg.clone()))]),
+                    });
+                }
+
+                Some(State::Block(block))
+            }
             Expr::LetBindings { var, block, t } => {
-                Some(State::Value(Value::Constant(Constant::Unit)))
+                todo!()
+                // Some(State::Value(Value::Constant(Constant::Unit)))
             }
             Expr::While { cond, block } => None,
             Expr::If { cond, yes, no } => None,
@@ -117,7 +140,7 @@ impl Iterator for Interpreter {
                 }
                 1 => {
                     let mut expr = block.pop_front().unwrap();
-                    if let Some(new_state) = Self::step_expr(&mut expr, memory) {
+                    if let Some(new_state) = Self::step_expr(&mut expr, memory, &top_level) {
                         *current = new_state
                     }
                     Some(())
@@ -134,7 +157,7 @@ impl Iterator for Interpreter {
                             var,
                             block: std::mem::take(block),
                         });
-                        *current = State::Block(VecDeque::from([*block_let]));
+                        *current = State::Block(block_let.clone());
                     } else {
                         continuation
                             .stack

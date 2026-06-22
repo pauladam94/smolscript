@@ -1,6 +1,5 @@
+use crate::{lexer::pos::Pos, structural_eq::StructuralEq};
 use std::fmt::{Display, Formatter};
-
-use crate::{parser::pos::Pos, structural_eq::StructuralEq};
 
 #[derive(Debug, Clone, Default)]
 pub struct Span<'src> {

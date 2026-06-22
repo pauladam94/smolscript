@@ -1,18 +1,18 @@
 use crate::{
     block::CSTBlock,
     expr::CSTExpr,
+    lexer::Token,
     parser::{
+        Parser,
         block::block_parser,
-        combinator::{alt::alt, cut::cut, opt::opt, repeat::repeat, terminated::terminated},
+        combinator::{alt::alt, cut::cut, opt::opt, repeat::repeat},
         error::ParseError,
         index::index_parser,
-        lexer::{Parser, Token},
         literal::literal_parser,
         method::method_parser,
         op::op_parser,
     },
 };
-use Token::Identifier;
 use logos::Lexer;
 use std::collections::VecDeque;
 
@@ -23,7 +23,7 @@ pub fn expr_parser<'src>(input: &mut Lexer<'src, Token>) -> Result<CSTExpr<'src>
         (
             "let",
             cut((
-                Identifier,
+                Token::Identifier,
                 "=",
                 expr_parser.map(|e| CSTBlock {
                     statements: VecDeque::from([e]),
@@ -31,14 +31,17 @@ pub fn expr_parser<'src>(input: &mut Lexer<'src, Token>) -> Result<CSTExpr<'src>
             )),
         )
             .map(|(_, (var, _, block))| CSTExpr::LetBindings { var, block }),
-        ("while", cut(("(", Identifier, ")", "{", block_parser, "}")))
+        (
+            "while",
+            cut(("(", Token::Identifier, ")", "{", block_parser, "}")),
+        )
             .map(|(_, (_, cond, _, _, block, _))| CSTExpr::While { cond, block })
             .context("While parsing a 'while' expression".to_string()),
         (
             "if",
             cut((
                 "(",
-                Identifier,
+                expr_parser,
                 ")",
                 "{",
                 block_parser,
@@ -49,13 +52,17 @@ pub fn expr_parser<'src>(input: &mut Lexer<'src, Token>) -> Result<CSTExpr<'src>
                 "}",
             )),
         )
-            .map(|(_, (_, cond, _, _, yes, _, _, _, no, _))| CSTExpr::If { cond, yes, no })
+            .map(|(_, (_, cond, _, _, yes, _, _, _, no, _))| CSTExpr::If {
+                cond: Box::new(cond),
+                yes,
+                no,
+            })
             .context("While parsing an 'if' expression".to_string()),
-        op_parser,
+        op_parser.context("While parsing an expression".to_string()),
         (
-            Identifier,
+            Token::Identifier,
             "(",
-            cut((repeat(0.., terminated(block_parser, opt(","))), ")")),
+            cut((repeat(0.., ((expr_parser, opt(","))).map(|(b, _)| b)), ")")),
         )
             .map(|(name, _, (args, _))| CSTExpr::FunCall { name, args })
             .context("While parsing a function call".to_string()),
@@ -65,7 +72,7 @@ pub fn expr_parser<'src>(input: &mut Lexer<'src, Token>) -> Result<CSTExpr<'src>
             cut((
                 method_parser,
                 "(",
-                repeat(0.., terminated(Identifier, opt(","))),
+                repeat(0.., ((Token::Identifier, opt(","))).map(|(s, _)| s)),
                 ")",
             )),
         )

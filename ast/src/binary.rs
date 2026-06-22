@@ -22,6 +22,7 @@ impl From<CSTBinary> for Binary {
             CSTBinary::Add => Binary::Add,
             CSTBinary::Sub => Binary::Sub,
             CSTBinary::Div => Binary::Div,
+            CSTBinary::Equal => Binary::Equal,
         }
     }
 }

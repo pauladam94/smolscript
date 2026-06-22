@@ -24,7 +24,7 @@ pub enum CSTExpr<'src> {
     /// - x.pop()
     FunCall {
         name: Span<'src>,
-        args: VecDeque<CSTBlock<'src>>,
+        args: VecDeque<CSTExpr<'src>>,
     },
     /// let [var] = [block]
     LetBindings {
@@ -38,7 +38,7 @@ pub enum CSTExpr<'src> {
     },
     /// if ([cond]) { [yes] } else { [no] }
     If {
-        cond: Span<'src>,
+        cond: Box<CSTExpr<'src>>,
         yes: CSTBlock<'src>,
         no: CSTBlock<'src>,
     },

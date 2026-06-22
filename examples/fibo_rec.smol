@@ -1,12 +1,15 @@
 fn fibo(n : u16) -> u16 {
-	aux(n, 1, 1)
+	let un = 1;
+	aux(n, un, un)
 }
 
 fn aux(n : u16, acc1 : u16, acc2 : u16) -> u16 {
-	if n == 0 {
+	let zero = 0;
+	if (n == zero) {
 		acc2
 	} else {
-		aux(n - 1, acc2, acc2 + acc1)
+		let un = 1;
+		aux(n - un, acc2, acc2 + acc1)
 	}
 }
 

@@ -5,6 +5,7 @@ pub enum CSTBinary {
     Add,
     Sub,
     Div,
+    Equal,
 }
 
 impl Display for CSTBinary {
@@ -13,6 +14,7 @@ impl Display for CSTBinary {
             CSTBinary::Add => write!(f, "+"),
             CSTBinary::Sub => write!(f, "-"),
             CSTBinary::Div => write!(f, "/"),
+            CSTBinary::Equal => write!(f, "=="),
         }
     }
 }

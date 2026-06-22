@@ -1,11 +1,7 @@
 use crate::{
     block::CSTBlock,
-    parser::{
-        combinator::separated::separated,
-        error::ParseError,
-        expr::expr_parser,
-        lexer::{Parser, Token},
-    },
+    lexer::Token,
+    parser::{Parser, combinator::separated::separated, error::ParseError, expr::expr_parser},
 };
 use logos::Lexer;
 

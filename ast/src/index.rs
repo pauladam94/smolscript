@@ -1,6 +1,6 @@
 use crate::Index;
 use cst::index::CSTIndex;
-use std::fmt::Display;
+use std::{collections::VecDeque, fmt::Display};
 
 impl Display for Index {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -18,6 +18,15 @@ impl<'src> From<CSTIndex<'src>> for Index {
         Index {
             var: var.to_string(),
             index: index.into_iter().map(|span| span.to_string()).collect(),
+        }
+    }
+}
+
+impl Index {
+    pub fn var(var: String) -> Self {
+        Self {
+            var,
+            index: VecDeque::from([]),
         }
     }
 }

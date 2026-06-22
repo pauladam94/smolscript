@@ -1,9 +1,5 @@
+use crate::{block::CSTBlock, parser::span::Span, structural_eq::StructuralEq, types::CSTTypes};
 use std::{collections::VecDeque, fmt::Display};
-
-use crate::{
-    block::CSTBlock, into_owned::IntoOwned, parser::span::Span, structural_eq::StructuralEq,
-    types::CSTTypes,
-};
 
 /// Declaration of a function that is displayed this way :
 /// - `fn [name] ([args]) [block]`

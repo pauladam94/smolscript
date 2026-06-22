@@ -1,6 +1,6 @@
 use crate::parser::{
-    combinator::{opt::opt, repeat::repeat, terminated::terminated},
-    lexer::Parser,
+    Parser,
+    combinator::{opt::opt, repeat::repeat},
 };
 use std::{collections::VecDeque, ops::RangeBounds};
 
@@ -17,11 +17,15 @@ where
     I: Clone,
     R: RangeBounds<u16> + std::fmt::Debug,
 {
-    (repeat(range, terminated(parser.clone(), sep)), opt(parser)).map(|(mut v, x)| {
-        match x {
-            Some(x) => v.push_back(x),
-            None => (),
-        }
-        v
-    })
+    (
+        repeat(range, ((parser.clone(), sep)).map(|(s, _)| s)),
+        opt(parser),
+    )
+        .map(|(mut v, x)| {
+            match x {
+                Some(x) => v.push_back(x),
+                None => (),
+            }
+            v
+        })
 }

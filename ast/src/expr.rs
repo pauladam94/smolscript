@@ -1,7 +1,8 @@
 use crate::{Binary, Constant, Expr, Index, Method, Types, Unary};
 use cst::{block::CSTBlock, expr::CSTExpr};
+use itertools::Itertools;
 use std::{
-    collections::VecDeque,
+    collections::{VecDeque, vec_deque},
     fmt::{Display, Formatter},
 };
 
@@ -35,9 +36,18 @@ impl Display for Expr {
                 }
                 write!(f, ")")
             }
-            Expr::LetBindings { var, t, block } => write!(f, "let {var} : {t} = {block}"),
-            Expr::While { cond, block } => write!(f, "while {cond} {{{block}}}"),
-            Expr::If { cond, yes, no } => write!(f, "if {cond} {{{yes}}} else {{{no}}}"),
+            Expr::LetBindings { var, t, block } => {
+                write!(f, "let {var} : {t} = {}", block.iter().format(";"))
+            }
+            Expr::While { cond, block } => {
+                write!(f, "while {cond} {{{}}}", block.iter().format(";"))
+            }
+            Expr::If { cond, yes, no } => write!(
+                f,
+                "if {cond} {{{}}} else {{{}}}",
+                yes.iter().format(";"),
+                no.iter().format(";")
+            ),
             Expr::BinaryOp { lhs, op, rhs } => write!(f, "{lhs} {op} {rhs}"),
             Expr::UnaryOp { lhs: var, op } => write!(f, "{op} {var}"),
             Expr::Constant(constant) => write!(f, "{constant}"),
@@ -91,7 +101,7 @@ impl From<CSTExpr<'_>> for Expr {
                         Expr::LetBindings {
                             var: format!("tmp_{i}"),
                             t: Types::UNIT,
-                            block: Box::new(Expr::from(block)),
+                            block: VecDeque::from([Expr::from(block)]),
                         }
                     })
                     .collect();
@@ -105,16 +115,16 @@ impl From<CSTExpr<'_>> for Expr {
                 var: var.to_string(),
                 // todo the right type
                 t: Types::UNIT,
-                block: Box::new(Expr::from(block)),
+                block: VecDeque::from([Expr::from(block)]),
             },
             CSTExpr::While { cond, block } => Expr::While {
                 cond: cond.to_string(),
-                block: Box::new(Expr::from(block)),
+                block: VecDeque::from([Expr::from(block)]),
             },
             CSTExpr::If { cond, yes, no } => Expr::If {
                 cond: cond.to_string(),
-                yes: Box::new(Expr::from(yes)),
-                no: Box::new(Expr::from(no)),
+                yes: VecDeque::from([Expr::from(yes)]),
+                no: VecDeque::from([Expr::from(no)]),
             },
             CSTExpr::Constant(constant) => Expr::Constant(Constant::from(constant)),
             CSTExpr::BinaryOp { lhs, op, rhs } => Expr::BinaryOp {

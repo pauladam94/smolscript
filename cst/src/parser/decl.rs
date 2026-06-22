@@ -1,17 +1,19 @@
 use crate::{
     decl::CSTDecl,
+    lexer::Token,
     parser::{
-        args::args_parser,
-        block::block_parser,
-        combinator::{cut::cut, opt::opt, preceded::preceded, repeat::repeat},
-        error::ParseError,
-        lexer::{Parser, Token},
-        types::types_parser,
+        Parser, args::args_parser, block::block_parser, combinator::{cut::cut, opt::opt, repeat::repeat}, error::ParseError, types::types_parser
     },
     types::CSTTypes,
 };
 use logos::Lexer;
 use std::collections::VecDeque;
+
+pub fn next_decl<'src>(
+    input: &mut Lexer<'src, Token>,
+) -> Result<VecDeque<CSTDecl<'src>>, ParseError> {
+    todo!()
+}
 
 pub fn decl_parser<'src>(
     input: &mut Lexer<'src, Token>,

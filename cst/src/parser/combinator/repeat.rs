@@ -1,4 +1,4 @@
-use crate::parser::lexer::Parser;
+use crate::parser::Parser;
 use std::{
     collections::VecDeque,
     ops::{Bound, RangeBounds},

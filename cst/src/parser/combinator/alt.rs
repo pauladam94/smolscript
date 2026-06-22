@@ -1,6 +1,7 @@
-use crate::parser::lexer::CurrentLexerPos;
-use crate::parser::pos::Pos;
-use crate::parser::{error::ParseError, lexer::Parser};
+use crate::lexer::CurrentLexerPos;
+use crate::lexer::pos::Pos;
+use crate::parser::Parser;
+use crate::parser::error::ParseError;
 
 #[derive(Clone)]
 pub struct Alt<T> {
