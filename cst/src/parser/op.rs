@@ -1,8 +1,8 @@
 use crate::{
-    binop::CSTBinary,
-    expr::CSTExpr,
+    CSTBinary, CSTExpr,
     lexer::Token,
-    parser::{Parser, combinator::alt::alt, error::ParseError},
+    parser::{Parser, error::ParseError},
+    parser_combinator::alt::alt,
 };
 use logos::Lexer;
 
@@ -10,6 +10,7 @@ pub fn op_parser<'src>(input: &mut Lexer<'src, Token>) -> Result<CSTExpr<'src>, 
     (
         Token::Identifier,
         alt((
+            "!=".map(|_| CSTBinary::NotEqual),
             "==".map(|_| CSTBinary::Equal),
             "+".map(|_| CSTBinary::Add),
             "-".map(|_| CSTBinary::Sub),

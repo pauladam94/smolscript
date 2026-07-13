@@ -1,7 +1,7 @@
 use crate::{
-    index::CSTIndex, lexer::Token, parser::{
-        Parser, combinator::repeat::repeat, error::ParseError
-    }
+    CSTIndex,
+    lexer::Token,
+    parser::{Parser, error::ParseError}, parser_combinator::repeat::repeat,
 };
 use logos::Lexer;
 

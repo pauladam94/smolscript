@@ -1,5 +1,38 @@
-use cst::parser::{complete::cst_parser, error::ParseError};
+use cst::CST;
 use std::collections::VecDeque;
+
+/// This is the identifier type. This is how we are going to represent variable.
+/// We now forget any information about the original parsed file. We are in an
+/// abstract form. Even if identifier are integers they are not to be mistaken with
+/// Debruijn indexes, we are not using Debruijn indexes.
+///
+/// The main constrains we have is, if two [Span] are equal (not in position but
+/// their underlying string) they their identifier is the same.
+pub type Identifier = u16;
+
+/// Main function of this crate.
+///
+/// This function converts the CST (concrete syntax tree) to the AST (abstract
+/// syntax tree). It also takes into parameter the type information given by
+/// the typechecking phase on the AST.
+///
+/// Multiple things are done during this translation :
+/// - sugar syntax of surface language is removed
+/// - type information is builtin the AST
+/// - informations from original file (variable names, position, ..) are removed
+pub fn cst_to_ast(cst: &CST) -> AST {
+    let CST { top_level, block } = cst;
+    AST {
+        top_level: top_level.into_iter().map(|decl| Decl::from(decl)).collect(),
+        block: Expr::from(block),
+    }
+}
+
+/// This is the module that contains all of the convertion code for the CST
+pub mod from_cst;
+
+/// Module containing all [Display] implementation for the AST
+pub mod formatting;
 
 /// An [Ast] is an abstract syntax tree.
 /// It represents the language while abtracting the precise syntaxic element
@@ -9,25 +42,19 @@ use std::collections::VecDeque;
 /// information inside it that have all been resolved either by :
 /// - input from the user
 /// - or inferred by the type checker
+#[derive(Clone)]
 pub struct AST {
     pub top_level: VecDeque<Decl>,
     pub block: Expr,
 }
-pub mod ast;
 
+#[derive(Clone)]
 pub struct Decl {
     pub name: String,
     pub args: VecDeque<(String, Types)>,
     pub output_type: Types,
     pub block: Expr,
 }
-pub mod decl;
-
-// #[derive(Default)]
-// pub struct Block {
-//     pub statements: VecDeque<Expr>,
-// }
-// pub mod block;
 
 #[derive(Clone)]
 pub struct Types {
@@ -43,7 +70,6 @@ pub enum BasicTypes {
     Bool,
     Unit,
 }
-pub mod basic_types;
 
 /// Owned Expression of the AST.
 #[derive(Clone)]
@@ -85,14 +111,12 @@ pub enum Expr {
     Constant(Constant),
     EmptyVec,
 }
-pub mod expr;
 
 #[derive(Default, Clone)]
 pub struct Index {
     pub var: String,
     pub index: VecDeque<String>,
 }
-pub mod index;
 
 #[derive(Clone)]
 pub enum Method {
@@ -100,7 +124,6 @@ pub enum Method {
     Pop,
     Replace,
 }
-pub mod method;
 
 #[derive(Clone)]
 pub enum Binary {
@@ -109,25 +132,19 @@ pub enum Binary {
     Div,
     Mult,
     Equal,
+    NotEqual,
     LessThan,
 }
-pub mod binary;
 
 #[derive(Clone)]
 pub enum Unary {
     Not,
 }
-pub mod unary;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub enum Constant {
     Int(u16),
     Bool(bool),
+    #[default]
     Unit,
-}
-pub mod constant;
-
-pub fn ast_parser(input: &str) -> Result<AST, ParseError> {
-    let cst = cst_parser(input)?;
-    Ok(AST::from(cst))
 }

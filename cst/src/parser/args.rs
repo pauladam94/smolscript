@@ -1,7 +1,8 @@
 use crate::{
-    lexer::Token, parser::{
-        Parser, combinator::{cut::cut, separated::separated}, error::ParseError, span::Span, types::types_parser
-    }, types::CSTTypes
+    CSTTypes,
+    lexer::Token,
+    parser::{Parser, error::ParseError, span::Span, types::types_parser},
+    parser_combinator::{cut::cut, separated::separated},
 };
 use logos::Lexer;
 use std::collections::VecDeque;

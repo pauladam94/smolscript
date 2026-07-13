@@ -1,22 +1,21 @@
 use crate::{
-    block::CSTBlock,
-    expr::CSTExpr,
+    CSTBlock, CSTExpr,
     lexer::Token,
     parser::{
         Parser,
         block::block_parser,
-        combinator::{alt::alt, cut::cut, opt::opt, repeat::repeat},
         error::ParseError,
         index::index_parser,
         literal::literal_parser,
         method::method_parser,
         op::op_parser,
-    },
+    }, parser_combinator::{alt::alt, cut::cut, opt::opt, repeat::repeat},
 };
 use logos::Lexer;
 use std::collections::VecDeque;
 
 pub fn expr_parser<'src>(input: &mut Lexer<'src, Token>) -> Result<CSTExpr<'src>, ParseError> {
+    // match input.next() {}
     alt((
         ("[", cut("]")).map(|_| CSTExpr::EmptyVec),
         literal_parser().map(CSTExpr::Constant),

@@ -1,4 +1,4 @@
-use crate::{lexer::Token, literal::CSTConstant, parser::{Parser, combinator::alt::alt}};
+use crate::{CSTConstant, lexer::Token, parser::Parser, parser_combinator::alt::alt};
 use logos::Lexer;
 
 pub fn literal_parser<'src>() -> impl Parser<Lexer<'src, Token>, Output = CSTConstant> {

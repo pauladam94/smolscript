@@ -10,3 +10,5 @@ logos = "0.16.1"
 annotate-snippets = "0.12.16"
 # Coloration string tool
 colored = "3"
+# More method available for iterators
+itertools = "0.14.0"

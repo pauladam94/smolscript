@@ -1,12 +1,9 @@
-use ratatui::{
-    buffer::Buffer, layout::{Constraint, Layout, Rect}, widgets::{Block, Paragraph, Widget}
-};
 use std::{fmt::{Display, Formatter}, ops::Index};
 
 use crate::{Address, Region, value::Value};
 
 pub struct Heap {
-    data: Vec<Region>,
+    pub data: Vec<Region>,
 }
 
 impl Heap {
@@ -79,32 +76,7 @@ impl Display for Heap {
     }
 }
 
-impl Widget for &Heap {
-    fn render(self, area: Rect, buf: &mut Buffer)
-    where
-        Self: Sized,
-    {
-        use Constraint::*;
-        let nb_row = (area.height / 3) as usize;
-        let rows = Layout::vertical(vec![Length(2); nb_row]);
-        let layout = rows.split(area);
 
-        for (i, region) in self.data.iter().enumerate() {
-            let area = layout[i];
-            let v: Vec<String> = region.iter().map(|v| format!("{v}")).collect();
-            let s: String = v.iter().fold(String::new(), |acc, s| format!("{acc} | {s}"));
-            Paragraph::new(s)
-                .block(Block::bordered().title(format!("{}", i)))
-                .render(
-                    Rect {
-                        height: area.height + 1,
-                        ..area
-                    },
-                    buf,
-                );
-        }
-    }
-}
 
 impl Index<&Address> for Heap {
     type Output = Region;

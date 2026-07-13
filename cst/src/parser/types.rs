@@ -1,11 +1,8 @@
 use crate::{
-    lexer::Token,
-    parser::{
+    CSTTypes, lexer::Token, parser::{
         Parser,
-        combinator::{alt::alt, cut::cut},
         error::ParseError,
-    },
-    types::CSTTypes,
+    }, parser_combinator::{alt::alt, cut::cut}
 };
 use logos::Lexer;
 

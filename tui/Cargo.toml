@@ -4,8 +4,16 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+cst = { path = "../cst" }
 ast = { path = "../ast" }
-interpreter = { path = "../interpreter" }
+checker = { path = "../checker" }
+ast_interpreter = { path = "../ast_interpreter" }
+ssa = { path = "../ssa" }
+asm = { path = "../asm" }
+asm_interpreter = { path = "../asm_interpreter" }
 
 ratatui = "0.30.1"
 clap = { version = "4.6.1", features = ["derive"] }
+
+
+

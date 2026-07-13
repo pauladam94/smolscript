@@ -1,38 +1,38 @@
-use ast::ast_parser;
+use ast::{AST, cst_to_ast};
+use ast_interpreter::{heap::Heap, interpreter::Interpreter};
 use clap::Parser;
-use interpreter::interpreter::Interpreter;
+use cst::{CST, cst_parser};
 use ratatui::{
     crossterm::event::{Event, KeyCode, KeyEvent, poll, read},
     layout::{Constraint, Layout, Margin},
     prelude::{Buffer, Rect},
     widgets::{Block, Paragraph, Widget},
 };
-use std::{fs::File, io::Read, time::Duration};
+use std::time::Duration;
 use tui::{args::Args, input::Input};
 
-pub struct Game {
+pub struct UIState<'src> {
+    original_file: &'src str,
+    cst: CST<'src>,
+    ast: AST,
     interpreter: Interpreter,
 }
 
-pub fn get_string_from_path(path: &str) -> String {
-    let mut file = File::open(path).unwrap_or_else(|_| panic!("Failed to open file '{}'", path));
-    let mut contents = String::new();
-    file.read_to_string(&mut contents)
-        .unwrap_or_else(|_| panic!("Failed to read file '{}'", path));
-    contents
-}
-
-impl Game {
-    pub fn new(contents: &str) -> Self {
-        let ast = ast_parser(contents).unwrap_or_else(|e| {
+impl<'src> UIState<'src> {
+    pub fn new(original_file: &'src str) -> UIState<'src> {
+        let cst = cst_parser(original_file).unwrap_or_else(|e| {
             panic!(
                 "Failed to parse this file '{}'.\nGot this error : \n{}",
-                contents, e
+                original_file, e
             )
         });
+        let ast = cst_to_ast(&cst);
 
         Self {
-            interpreter: Interpreter::new(ast),
+            original_file,
+            interpreter: Interpreter::new(ast.clone()),
+            cst: cst,
+            ast,
         }
     }
 
@@ -53,7 +53,37 @@ impl Game {
     }
 }
 
-impl Widget for &Game {
+pub struct HeapWidget<'a>(&'a Heap);
+impl Widget for HeapWidget<'_> {
+    fn render(self, area: Rect, buf: &mut Buffer)
+    where
+        Self: Sized,
+    {
+        let heap = self.0;
+        use Constraint::*;
+        let nb_row = (area.height / 3) as usize;
+        let rows = Layout::vertical(vec![Length(2); nb_row]);
+        let layout = rows.split(area);
+
+        for (i, region) in heap.data.iter().enumerate() {
+            let area = layout[i];
+            let v: Vec<String> = region.iter().map(|v| format!("{v}")).collect();
+            let s: String = v
+                .iter()
+                .fold(String::new(), |acc, s| format!("{acc} | {s}"));
+            Paragraph::new(s)
+                .block(Block::bordered().title(format!("{}", i)))
+                .render(
+                    Rect {
+                        height: area.height + 1,
+                        ..area
+                    },
+                    buf,
+                );
+        }
+    }
+}
+impl Widget for &UIState<'_> {
     fn render(self, area: Rect, buf: &mut Buffer)
     where
         Self: Sized,
@@ -94,14 +124,15 @@ impl Widget for &Game {
             .block(Block::bordered())
             .render(top_right, buf);
 
-        self.interpreter.memory.heap.render(bottom_right, buf);
+        HeapWidget(&self.interpreter.memory.heap).render(bottom_right, buf);
     }
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
-    let contents = get_string_from_path(&args.path);
-    let mut game = Game::new(&contents);
+    let contents = std::fs::read_to_string(&args.path)
+        .unwrap_or_else(|e| panic!("Error reading '{}'.\n{}", args.path, e));
+    let mut game = UIState::new(&contents);
 
     ratatui::run(|terminal| {
         terminal.draw(|frame| (&game).render(frame.area(), frame.buffer_mut()))?;

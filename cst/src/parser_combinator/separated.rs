@@ -1,7 +1,4 @@
-use crate::parser::{
-    Parser,
-    combinator::{opt::opt, repeat::repeat},
-};
+use crate::{parser::Parser, parser_combinator::{opt::opt, repeat::repeat}};
 use std::{collections::VecDeque, ops::RangeBounds};
 
 pub fn separated<I, O1, O2, R, P, S>(
@@ -29,3 +26,4 @@ where
             v
         })
 }
+

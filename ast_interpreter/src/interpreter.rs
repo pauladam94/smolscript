@@ -1,14 +1,13 @@
+use crate::{
+    continuation::Continuation, continuation_stack::ContinuationStack, heap::Heap, memory::Memory,
+    state::State, value::Value,
+};
 use ast::{AST, Constant, Decl, Expr, Index, Method};
 use colored::Colorize;
 use itertools::Itertools;
 use std::{
     collections::VecDeque,
     fmt::{Display, Formatter},
-};
-
-use crate::{
-    continuation::Continuation, continuation_stack::ContinuationStack, heap::Heap, memory::Memory,
-    state::State, value::Value,
 };
 
 pub struct Interpreter {
@@ -88,7 +87,12 @@ impl Interpreter {
                     block.push_front(Expr::LetBindings {
                         var: var_call.clone(),
                         t: t.clone(),
-                        block: VecDeque::from([Expr::Index(Index::var(var_arg.clone()))]),
+                        block: VecDeque::from([Expr::Index({
+                            Index {
+                                var: var_arg.clone(),
+                                index: VecDeque::from([]),
+                            }
+                        })]),
                     });
                 }
 

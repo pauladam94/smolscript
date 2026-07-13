@@ -4,11 +4,14 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-compiler = { path = "../compiler" }
-interpreter = { path = "../interpreter" }
+cst = { path = "../cst" }
 checker = { path = "../checker" }
 ast = { path = "../ast" }
-cst = { path = "../cst" }
+ast_interpreter = { path = "../ast_interpreter" }
+ssa = { path = "../ssa" }
+
+
+
 
 colored = "3"
 
