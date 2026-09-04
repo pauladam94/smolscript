@@ -5,7 +5,7 @@ pub enum Instruction {
 pub type Label = usize;
 
 pub enum JumpInstruction {
-    
+    Return 
 }
 
 pub struct Block {

@@ -23,15 +23,6 @@ pub mod lexer;
 pub mod parser;
 pub mod parser_combinator;
 
-/// This trait verifies if 2 [CST] are structurally equal.
-///
-/// It verifies if the whole [CST] are equal except for the precise
-/// position of the span in the original string.
-///
-/// This is specifically used to test if re-parsing the print of the [CST] gives
-/// us the same [CST]
-pub mod structural_eq;
-
 /// Main function of this crate.
 ///
 /// This function parse from an `&str` the concrete syntax tree.
@@ -67,18 +58,13 @@ pub enum CSTBinary {
     Sub,
     Div,
     Equal,
-    NotEqual
+    NotEqual,
 }
 
 /// Complete AST of a program
 pub struct CST<'src> {
     pub top_level: VecDeque<CSTDecl<'src>>,
-    pub block: CSTBlock<'src>,
-}
-
-#[derive(Debug, Default)]
-pub struct CSTBlock<'src> {
-    pub statements: VecDeque<CSTExpr<'src>>,
+    pub expr: CSTExpr<'src>,
 }
 
 /// Declaration of a function that is displayed this way :
@@ -88,11 +74,13 @@ pub struct CSTDecl<'src> {
     pub name: Span<'src>,
     pub args: VecDeque<(Span<'src>, CSTTypes)>,
     pub output_type: CSTTypes,
-    pub block: CSTBlock<'src>,
+    pub expr: CSTExpr<'src>,
 }
 
 #[derive(Debug)]
 pub enum CSTExpr<'src> {
+    // A list of expression that can be viewed as statements
+    Block(VecDeque<CSTExpr<'src>>),
     // x or x[y] or x[y][z] ...
     Index(CSTIndex<'src>),
     // Variable(Ident),
@@ -113,18 +101,18 @@ pub enum CSTExpr<'src> {
     /// let [var] = [block]
     LetBindings {
         var: Span<'src>,
-        block: CSTBlock<'src>,
+        block: VecDeque<CSTExpr<'src>>,
     },
     /// while ([cond]) { [block] }
     While {
         cond: Span<'src>,
-        block: CSTBlock<'src>,
+        block: VecDeque<CSTExpr<'src>>,
     },
     /// if ([cond]) { [yes] } else { [no] }
     If {
-        cond: Box<CSTExpr<'src>>,
-        yes: CSTBlock<'src>,
-        no: CSTBlock<'src>,
+        cond: VecDeque<CSTExpr<'src>>,
+        yes: VecDeque<CSTExpr<'src>>,
+        no: VecDeque<CSTExpr<'src>>,
     },
     /// Constants : integer, strings, booleans, unit
     Constant(CSTConstant),

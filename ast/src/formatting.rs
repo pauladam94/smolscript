@@ -1,4 +1,4 @@
-use crate::{BasicTypes, Binary, Constant, Expr, Index, Method, Types, Unary};
+use crate::{BasicTypes, Binary, Constant, Expr, VarIndex, Method, Types, Unary};
 use itertools::Itertools;
 use std::fmt::{Display, Formatter, Result};
 
@@ -104,7 +104,7 @@ impl Display for PPExpr<'_> {
     }
 }
 
-impl Display for Index {
+impl Display for VarIndex {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         write!(f, "{}", self.var)?;
         for var in self.index.iter() {

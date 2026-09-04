@@ -1,5 +1,5 @@
 use ast::{AST, cst_to_ast};
-use ast_interpreter::{heap::Heap, interpreter::Interpreter};
+use ast_interpreter::interpreter::Interpreter;
 use clap::Parser;
 use cst::{CST, cst_parser};
 use ratatui::{
@@ -11,15 +11,15 @@ use ratatui::{
 use std::time::Duration;
 use tui::{args::Args, input::Input};
 
-pub struct UIState<'src> {
+pub struct State<'src> {
     original_file: &'src str,
     cst: CST<'src>,
     ast: AST,
     interpreter: Interpreter,
 }
 
-impl<'src> UIState<'src> {
-    pub fn new(original_file: &'src str) -> UIState<'src> {
+impl<'src> State<'src> {
+    pub fn new(original_file: &'src str) -> State<'src> {
         let cst = cst_parser(original_file).unwrap_or_else(|e| {
             panic!(
                 "Failed to parse this file '{}'.\nGot this error : \n{}",
@@ -53,37 +53,37 @@ impl<'src> UIState<'src> {
     }
 }
 
-pub struct HeapWidget<'a>(&'a Heap);
-impl Widget for HeapWidget<'_> {
-    fn render(self, area: Rect, buf: &mut Buffer)
-    where
-        Self: Sized,
-    {
-        let heap = self.0;
-        use Constraint::*;
-        let nb_row = (area.height / 3) as usize;
-        let rows = Layout::vertical(vec![Length(2); nb_row]);
-        let layout = rows.split(area);
+// pub struct HeapWidget<'a>(&'a Heap);
+// impl Widget for HeapWidget<'_> {
+//     fn render(self, area: Rect, buf: &mut Buffer)
+//     where
+//         Self: Sized,
+//     {
+//         let heap = self.0;
+//         use Constraint::*;
+//         let nb_row = (area.height / 3) as usize;
+//         let rows = Layout::vertical(vec![Length(2); nb_row]);
+//         let layout = rows.split(area);
 
-        for (i, region) in heap.data.iter().enumerate() {
-            let area = layout[i];
-            let v: Vec<String> = region.iter().map(|v| format!("{v}")).collect();
-            let s: String = v
-                .iter()
-                .fold(String::new(), |acc, s| format!("{acc} | {s}"));
-            Paragraph::new(s)
-                .block(Block::bordered().title(format!("{}", i)))
-                .render(
-                    Rect {
-                        height: area.height + 1,
-                        ..area
-                    },
-                    buf,
-                );
-        }
-    }
-}
-impl Widget for &UIState<'_> {
+//         for (i, region) in heap.data.iter().enumerate() {
+//             let area = layout[i];
+//             let v: Vec<String> = region.iter().map(|v| format!("{v}")).collect();
+//             let s: String = v
+//                 .iter()
+//                 .fold(String::new(), |acc, s| format!("{acc} | {s}"));
+//             Paragraph::new(s)
+//                 .block(Block::bordered().title(format!("{}", i)))
+//                 .render(
+//                     Rect {
+//                         height: area.height + 1,
+//                         ..area
+//                     },
+//                     buf,
+//                 );
+//         }
+//     }
+// }
+impl Widget for &State<'_> {
     fn render(self, area: Rect, buf: &mut Buffer)
     where
         Self: Sized,
@@ -109,22 +109,17 @@ impl Widget for &UIState<'_> {
         let layout = left_right.split(top);
         let (left, right) = (layout[0], layout[1]);
 
-        let layout = top_bottom.split(right);
-        let (top_right, bottom_right) = (layout[0], layout[1]);
-
         Paragraph::new(format!(
-            "{}\n\n\n{}",
-            self.interpreter.current, self.interpreter.continuation
+            "{}\n\n\n{}\nStep number {}",
+            self.interpreter.current, self.interpreter.continuation, self.interpreter.step
         ))
         // .wrap(Wrap { trim: true })
         .block(Block::bordered())
         .render(left, buf);
 
-        Paragraph::new(format!("{}", self.interpreter.memory.stack))
+        Paragraph::new(format!("{}", self.interpreter.memory))
             .block(Block::bordered())
-            .render(top_right, buf);
-
-        HeapWidget(&self.interpreter.memory.heap).render(bottom_right, buf);
+            .render(right, buf);
     }
 }
 
@@ -132,10 +127,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
     let contents = std::fs::read_to_string(&args.path)
         .unwrap_or_else(|e| panic!("Error reading '{}'.\n{}", args.path, e));
-    let mut game = UIState::new(&contents);
+    let mut state = State::new(&contents);
 
     ratatui::run(|terminal| {
-        terminal.draw(|frame| (&game).render(frame.area(), frame.buffer_mut()))?;
+        terminal.draw(|frame| (&state).render(frame.area(), frame.buffer_mut()))?;
         loop {
             if poll(Duration::from_millis(100))? {
                 let event = read()?;
@@ -146,8 +141,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 {
                     break;
                 }
-                game.interact(Input::try_from(event).ok());
-                terminal.draw(|frame| (&game).render(frame.area(), frame.buffer_mut()))?;
+                state.interact(Input::try_from(event).ok());
+                terminal.draw(|frame| state.render(frame.area(), frame.buffer_mut()))?;
             }
         }
         Ok(())

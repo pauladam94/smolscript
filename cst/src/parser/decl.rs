@@ -1,7 +1,5 @@
 use crate::{
-    CSTDecl, CSTTypes,
-    lexer::Token,
-    parser::{
+    CSTDecl, CSTExpr, CSTTypes, lexer::Token, parser::{
         Parser, args::args_parser, block::block_parser, error::ParseError, types::types_parser,
     }, parser_combinator::{cut::cut, opt::opt, repeat::repeat},
 };
@@ -30,7 +28,7 @@ pub fn decl_parser<'src>(
                 |(_, (name, _, args, _, output_type, _, block, _))| CSTDecl {
                     name,
                     args,
-                    block,
+                    expr: CSTExpr::Block(block),
                     output_type,
                 },
             ),

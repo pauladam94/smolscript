@@ -1,8 +1,8 @@
 use crate::{
-    continuation::Continuation, continuation_stack::ContinuationStack, heap::Heap, memory::Memory,
+    continuation::Continuation, continuation_stack::ContinuationStack, memory::Memory,
     state::State, value::Value,
 };
-use ast::{AST, Constant, Decl, Expr, Index, Method};
+use ast::{AST, Constant, Decl, Expr, VarIndex, Method};
 use colored::Colorize;
 use itertools::Itertools;
 use std::{
@@ -11,7 +11,7 @@ use std::{
 };
 
 pub struct Interpreter {
-    step: u64,
+    pub step: u64,
     top_level: VecDeque<Decl>,
     pub current: State,
     pub continuation: ContinuationStack,
@@ -28,9 +28,6 @@ impl Interpreter {
             continuation: ContinuationStack::EMPTY,
             memory: Memory::EMPTY,
         }
-    }
-    pub fn heap(&self) -> &Heap {
-        &self.memory.heap
     }
     pub fn get_value(&self) -> Option<Value> {
         if self.continuation.len() == 0
@@ -50,7 +47,7 @@ impl Interpreter {
         top_level: &VecDeque<Decl>,
     ) -> Option<State> {
         match expr {
-            Expr::Index(index) => Some(State::Value(memory.index_value(std::mem::take(index)))),
+            Expr::Index(index) => Some(State::Value(memory.get_index_value(std::mem::take(index)))),
             Expr::MethodCall {
                 index,
                 method,
@@ -79,7 +76,7 @@ impl Interpreter {
                 let fun_decl = top_level
                     .iter()
                     .find(|decl| &decl.name == name)
-                    .expect(&format!(""));
+                    .expect(&format!("'{}' function not found in the source. This should be checked by type checking.", name));
                 let mut block = VecDeque::from([]);
                 block.push_front(fun_decl.block.clone());
 
@@ -88,7 +85,7 @@ impl Interpreter {
                         var: var_call.clone(),
                         t: t.clone(),
                         block: VecDeque::from([Expr::Index({
-                            Index {
+                            VarIndex {
                                 var: var_arg.clone(),
                                 index: VecDeque::from([]),
                             }
@@ -110,8 +107,7 @@ impl Interpreter {
             Expr::BinaryOp { op, lhs, rhs } => None,
             Expr::UnaryOp { lhs: var, op } => todo!(),
             Expr::EmptyVec => {
-                let addr = memory.alloc();
-                Some(State::Value(Value::Address(addr)))
+                Some(State::Value(Value::Array(vec![])))
             }
             Expr::Block(block) => Some(State::Block(std::mem::take(block))),
         }

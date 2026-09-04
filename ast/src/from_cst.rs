@@ -1,7 +1,7 @@
-use crate::{BasicTypes, Binary, Constant, Decl, Expr, Index, Method, Types, Unary};
+use crate::{BasicTypes, Binary, Constant, Decl, Expr, VarIndex, Method, Types, Unary};
 use cst::{
-    CSTBasicTypes, CSTBinary, CSTBlock, CSTConstant, CSTDecl, CSTExpr, CSTIndex, CSTMethod,
-    CSTTypes, CSTUnary,
+    CSTBasicTypes, CSTBinary, CSTConstant, CSTDecl, CSTExpr, CSTIndex, CSTMethod, CSTTypes,
+    CSTUnary,
 };
 use std::collections::VecDeque;
 
@@ -11,7 +11,7 @@ impl<'src> From<&CSTDecl<'src>> for Decl {
             name,
             args,
             output_type,
-            block,
+            expr: block,
         } = cst_decl;
 
         Decl {
@@ -46,28 +46,29 @@ impl From<&CSTBasicTypes> for BasicTypes {
         }
     }
 }
-impl From<&CSTBlock<'_>> for Expr {
-    fn from(block: &CSTBlock<'_>) -> Self {
-        let CSTBlock { statements } = block;
-        Expr::Block(
-            statements
-                .into_iter()
-                .map(|expr| Expr::from(expr))
-                .collect(),
-        )
-    }
-}
+// impl From<&CSTBlock<'_>> for Expr {
+//     fn from(block: &CSTBlock<'_>) -> Self {
+//         let CSTBlock { statements } = block;
+//         Expr::Block(
+//             statements
+//                 .into_iter()
+//                 .map(|expr| Expr::from(expr))
+//                 .collect(),
+//         )
+//     }
+// }
 
 impl From<&CSTExpr<'_>> for Expr {
     fn from(expr: &CSTExpr<'_>) -> Self {
         match expr {
-            CSTExpr::Index(cstindex) => Expr::Index(Index::from(cstindex)),
+            CSTExpr::Block(block) => Expr::Block(block.iter().map(|e| Expr::from(e)).collect()),
+            CSTExpr::Index(cstindex) => Expr::Index(VarIndex::from(cstindex)),
             CSTExpr::MethodCall {
                 index,
                 method,
                 args,
             } => Expr::MethodCall {
-                index: Index::from(index),
+                index: VarIndex::from(index),
                 method: Method::from(method),
                 args: args.into_iter().map(|span| span.to_string()).collect(),
             },
@@ -95,17 +96,24 @@ impl From<&CSTExpr<'_>> for Expr {
                 var: var.to_string(),
                 // todo the right type
                 t: Types::UNIT,
-                block: VecDeque::from([Expr::from(block)]),
+                block: block.into_iter().map(|e| Expr::from(e)).collect(),
             },
             CSTExpr::While { cond, block } => Expr::While {
                 cond: cond.to_string(),
-                block: VecDeque::from([Expr::from(block)]),
+                block: block.into_iter().map(|e| Expr::from(e)).collect(),
             },
-            CSTExpr::If { cond, yes, no } => Expr::If {
-                cond: cond.to_string(),
-                yes: VecDeque::from([Expr::from(yes)]),
-                no: VecDeque::from([Expr::from(no)]),
-            },
+            CSTExpr::If { cond, yes, no } => Expr::Block(VecDeque::from([
+                Expr::LetBindings {
+                    var: String::from("tmp"),
+                    t: Types::BOOL,
+                    block: cond.into_iter().map(|e| Expr::from(e)).collect(),
+                },
+                Expr::If {
+                    cond: String::from("tmp"),
+                    yes: yes.into_iter().map(|e| Expr::from(e)).collect(),
+                    no: no.into_iter().map(|e| Expr::from(e)).collect(),
+                },
+            ])),
             CSTExpr::Constant(constant) => Expr::Constant(Constant::from(constant)),
             CSTExpr::BinaryOp { lhs, op, rhs } => Expr::BinaryOp {
                 lhs: lhs.to_string(),
@@ -120,10 +128,10 @@ impl From<&CSTExpr<'_>> for Expr {
         }
     }
 }
-impl From<&CSTIndex<'_>> for Index {
+impl From<&CSTIndex<'_>> for VarIndex {
     fn from(cst_index: &CSTIndex<'_>) -> Self {
         let CSTIndex { var, index } = cst_index;
-        Index {
+        VarIndex {
             var: var.to_string(),
             index: index.into_iter().map(|span| span.to_string()).collect(),
         }

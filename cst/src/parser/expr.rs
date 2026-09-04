@@ -1,15 +1,11 @@
 use crate::{
-    CSTBlock, CSTExpr,
+    CSTExpr,
     lexer::Token,
     parser::{
-        Parser,
-        block::block_parser,
-        error::ParseError,
-        index::index_parser,
-        literal::literal_parser,
-        method::method_parser,
-        op::op_parser,
-    }, parser_combinator::{alt::alt, cut::cut, opt::opt, repeat::repeat},
+        Parser, block::block_parser, error::ParseError, index::index_parser,
+        literal::literal_parser, method::method_parser, op::op_parser,
+    },
+    parser_combinator::{alt::alt, cut::cut, opt::opt, repeat::repeat},
 };
 use logos::Lexer;
 use std::collections::VecDeque;
@@ -19,17 +15,12 @@ pub fn expr_parser<'src>(input: &mut Lexer<'src, Token>) -> Result<CSTExpr<'src>
     alt((
         ("[", cut("]")).map(|_| CSTExpr::EmptyVec),
         literal_parser().map(CSTExpr::Constant),
-        (
-            "let",
-            cut((
-                Token::Identifier,
-                "=",
-                expr_parser.map(|e| CSTBlock {
-                    statements: VecDeque::from([e]),
-                }),
-            )),
-        )
-            .map(|(_, (var, _, block))| CSTExpr::LetBindings { var, block }),
+        ("let", cut((Token::Identifier, "=", expr_parser))).map(|(_, (var, _, expr))| {
+            CSTExpr::LetBindings {
+                var,
+                block: VecDeque::from([expr]),
+            }
+        }),
         (
             "while",
             cut(("(", Token::Identifier, ")", "{", block_parser, "}")),
@@ -52,7 +43,7 @@ pub fn expr_parser<'src>(input: &mut Lexer<'src, Token>) -> Result<CSTExpr<'src>
             )),
         )
             .map(|(_, (_, cond, _, _, yes, _, _, _, no, _))| CSTExpr::If {
-                cond: Box::new(cond),
+                cond: VecDeque::from([cond]),
                 yes,
                 no,
             })

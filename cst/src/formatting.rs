@@ -1,6 +1,6 @@
 use crate::{
-    CST, CSTBasicTypes, CSTBinary, CSTBlock, CSTConstant, CSTDecl, CSTExpr, CSTIndex, CSTMethod,
-    CSTTypes, CSTUnary,
+    CST, CSTBasicTypes, CSTBinary, CSTConstant, CSTDecl, CSTExpr, CSTIndex, CSTMethod, CSTTypes,
+    CSTUnary,
 };
 use itertools::Itertools;
 use std::fmt::{Display, Formatter, Result};
@@ -18,7 +18,7 @@ impl Display for CST<'_> {
         for decl in &self.top_level {
             write!(f, "{}\n", decl)?;
         }
-        write!(f, "{}", self.block)
+        write!(f, "{}", self.expr)
     }
 }
 impl Display for CSTBinary {
@@ -32,11 +32,6 @@ impl Display for CSTBinary {
         }
     }
 }
-impl Display for CSTBlock<'_> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        write!(f, "{}", self.statements.iter().format(";\n"))
-    }
-}
 
 impl Display for CSTDecl<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
@@ -48,28 +43,76 @@ impl Display for CSTDecl<'_> {
                 write!(f, ", {s} : {t}")?;
             }
         }
-        write!(f, ") {{\n{}\n}}", self.block)
+        write!(f, ") {{\n{}\n}}", self.expr)
     }
 }
-impl Display for CSTExpr<'_> {
+
+pub struct CSTExprPP<'a, 'src> {
+    depth: u8,
+    expr: &'a CSTExpr<'src>,
+}
+impl Display for CSTExprPP<'_, '_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         use CSTExpr::*;
-        match self {
+        match self.expr {
+            Block(block) => write!(f, "{}", block.iter().format(";\n")),
             Index(index) => write!(f, "{index}"),
             MethodCall {
                 index,
                 method: name,
                 args,
             } => write!(f, "{index}.{name}({})", args.iter().format(", ")),
-            FunCall { name: fun, args } => write!(f, "{fun}({})", args.iter().format(", ")),
-            LetBindings { var, block } => write!(f, "let {var} = {block}"),
-            While { cond, block } => write!(f, "while {cond} {block}"),
-            If { cond, yes, no } => write!(f, "if ({cond}) {{\n{yes}\n}} else {{\n{no}\n}}"),
+            FunCall { name: fun, args } => write!(
+                f,
+                "{fun}({})",
+                args.iter()
+                    .map(|arg| arg.pretty_printer(self.depth + 1))
+                    .format(", ")
+            ),
+            LetBindings { var, block } => write!(
+                f,
+                "let {var} = {}",
+                block
+                    .iter()
+                    .map(|e| e.pretty_printer(self.depth + 1))
+                    .format("")
+            ),
+            While { cond, block } => write!(
+                f,
+                "while {cond} {}",
+                block
+                    .iter()
+                    .map(|e| e.pretty_printer(self.depth + 1))
+                    .format(";\n")
+            ),
+            If { cond, yes, no } => write!(
+                f,
+                "if ({}) {{\n{}\n}} else {{\n{}\n}}",
+                cond.iter()
+                    .map(|e| e.pretty_printer(self.depth + 1))
+                    .format(";\n"),
+                yes.iter()
+                    .map(|e| e.pretty_printer(self.depth + 1))
+                    .format(";\n"),
+                no.iter()
+                    .map(|e| e.pretty_printer(self.depth + 1))
+                    .format(";\n")
+            ),
             Constant(constant) => write!(f, "{constant}"),
-            BinaryOp { op, lhs, rhs } => write!(f, "{lhs} {op} {rhs}"),
+            BinaryOp { lhs, op, rhs } => write!(f, "{lhs} {op} {rhs}"),
             UnaryOp { lhs, op } => write!(f, "{lhs} {op}"),
             EmptyVec => write!(f, "[]"),
         }
+    }
+}
+impl<'src> CSTExpr<'src> {
+    pub fn pretty_printer<'a>(&'a self, depth: u8) -> CSTExprPP<'a, 'src> {
+        CSTExprPP { depth, expr: self }
+    }
+}
+impl Display for CSTExpr<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        write!(f, "{}", self.pretty_printer(0))
     }
 }
 

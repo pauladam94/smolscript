@@ -16,7 +16,7 @@ impl Display for State {
         match self {
             State::Block(block) => write!(
                 f,
-                "Block : {}",
+                "Block :\n{}",
                 block.iter().map(|e| e.pretty_printer(0)).format(";\n")
             ),
             State::Value(value) => write!(f, "Val : {value}"),

@@ -8,7 +8,7 @@ use std::collections::VecDeque;
 ///
 /// The main constrains we have is, if two [Span] are equal (not in position but
 /// their underlying string) they their identifier is the same.
-pub type Identifier = u16;
+pub type Identifier = usize;
 
 /// Main function of this crate.
 ///
@@ -21,7 +21,7 @@ pub type Identifier = u16;
 /// - type information is builtin the AST
 /// - informations from original file (variable names, position, ..) are removed
 pub fn cst_to_ast(cst: &CST) -> AST {
-    let CST { top_level, block } = cst;
+    let CST { top_level, expr: block } = cst;
     AST {
         top_level: top_level.into_iter().map(|decl| Decl::from(decl)).collect(),
         block: Expr::from(block),
@@ -42,13 +42,13 @@ pub mod formatting;
 /// information inside it that have all been resolved either by :
 /// - input from the user
 /// - or inferred by the type checker
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct AST {
     pub top_level: VecDeque<Decl>,
     pub block: Expr,
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct Decl {
     pub name: String,
     pub args: VecDeque<(String, Types)>,
@@ -56,14 +56,14 @@ pub struct Decl {
     pub block: Expr,
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct Types {
     depth: u8,
     basic: BasicTypes,
 }
 pub mod types;
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum BasicTypes {
     U16,
     U8,
@@ -72,11 +72,11 @@ pub enum BasicTypes {
 }
 
 /// Owned Expression of the AST.
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum Expr {
-    Index(Index),
+    Index(VarIndex),
     MethodCall {
-        index: Index,
+        index: VarIndex,
         method: Method,
         args: VecDeque<String>,
     },
@@ -112,20 +112,20 @@ pub enum Expr {
     EmptyVec,
 }
 
-#[derive(Default, Clone)]
-pub struct Index {
+#[derive(Default, Clone, PartialEq, Eq)]
+pub struct VarIndex {
     pub var: String,
     pub index: VecDeque<String>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum Method {
     Push,
     Pop,
     Replace,
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum Binary {
     Add,
     Sub,
@@ -136,12 +136,12 @@ pub enum Binary {
     LessThan,
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum Unary {
     Not,
 }
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub enum Constant {
     Int(u16),
     Bool(bool),

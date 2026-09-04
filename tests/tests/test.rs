@@ -1,7 +1,7 @@
-use ast::{AST, cst_to_ast};
+use ast::cst_to_ast;
 use ast_interpreter::interpreter::Interpreter;
 use colored::Colorize;
-use cst::{cst_parser, structural_eq::StructuralEq};
+use cst::cst_parser;
 use serde_derive::{Deserialize, Serialize};
 use test_each_file::test_each_file;
 
@@ -39,10 +39,10 @@ fn full_test([file, json_file]: [&str; 2]) {
         }
     }
 
-    // We get the CST and continue without excepting an error. 
+    // We get the CST and continue without excepting an error.
     let cst = file_parse
         .unwrap_or_else(|err| panic!("Parsing should success but failed with errors :\n{err}"));
-    
+
     // We print the CST to see what it looks like
     println!(
         "{}, Print of the CST:\n{}\n---",
@@ -50,16 +50,20 @@ fn full_test([file, json_file]: [&str; 2]) {
         cst
     );
 
-    // We get the 
+    // We get the
     let cst_print = format!("{cst}");
-    let cst_print_parse = cst_parser(&cst_print).unwrap_or_else(|err| {
+    let cst_2 = cst_parser(&cst_print).unwrap_or_else(|err| {
         panic!("Parsing of the printed CST should success but failed with errors :\n{err}")
     });
-    if !cst_print_parse.structural_eq(&cst) {
+
+    let ast = cst_to_ast(&cst);
+    let ast_2 = cst_to_ast(&cst_2);
+
+    if ast != ast_2 {
         panic!(
             "{}Printing then parsing again does not give the (structural) same AST.\n>> Second Parsing : \n{}",
             "[ERROR]".red(),
-            cst_print_parse
+            cst_2
         )
     }
 
@@ -94,7 +98,7 @@ fn full_test([file, json_file]: [&str; 2]) {
         panic!("The execution stopped but it crashed. It didn't end with a value")
     });
 
-    if !expected_value.eq(&value, expected_interpreter.heap(), interpreter.heap()) {
+    if expected_value != value {
         panic!("{}Expected", "[ERROR]".red());
     }
 }

@@ -1,4 +1,4 @@
-use crate::{lexer::pos::Pos, structural_eq::StructuralEq};
+use crate::lexer::pos::Pos;
 use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Clone, Default)]
@@ -16,12 +16,6 @@ impl<'src> Span<'src> {
 impl<'src> Display for Span<'src> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.ident)
-    }
-}
-
-impl<'src> StructuralEq for Span<'src> {
-    fn structural_eq(&self, rhs: &Self) -> bool {
-        self.ident == rhs.ident
     }
 }
 

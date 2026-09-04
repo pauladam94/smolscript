@@ -1,13 +1,15 @@
+use std::collections::VecDeque;
+
 use crate::{
-    CSTBlock,
+    CSTExpr,
     lexer::Token,
-    parser::{Parser, error::ParseError, expr::expr_parser}, parser_combinator::separated::separated,
+    parser::{Parser, error::ParseError, expr::expr_parser},
+    parser_combinator::separated::separated,
 };
 use logos::Lexer;
 
-pub fn block_parser<'src>(input: &mut Lexer<'src, Token>) -> Result<CSTBlock<'src>, ParseError> {
+pub fn block_parser<'src>(input: &mut Lexer<'src, Token>) -> Result<VecDeque<CSTExpr<'src>>, ParseError> {
     separated(0.., expr_parser, ";")
-        .map(|statements| CSTBlock { statements })
         .context("While parsing a block".to_string())
         .parse(input)
 }
