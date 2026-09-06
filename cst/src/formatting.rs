@@ -69,14 +69,7 @@ impl Display for CSTExprPP<'_, '_> {
                     .map(|arg| arg.pretty_printer(self.depth + 1))
                     .format(", ")
             ),
-            LetBindings { var, block } => write!(
-                f,
-                "let {var} = {}",
-                block
-                    .iter()
-                    .map(|e| e.pretty_printer(self.depth + 1))
-                    .format("")
-            ),
+            LetBindings { var, expr } => write!(f, "let {var} = {}", expr),
             While { cond, block } => write!(
                 f,
                 "while {cond} {}",
@@ -88,9 +81,7 @@ impl Display for CSTExprPP<'_, '_> {
             If { cond, yes, no } => write!(
                 f,
                 "if ({}) {{\n{}\n}} else {{\n{}\n}}",
-                cond.iter()
-                    .map(|e| e.pretty_printer(self.depth + 1))
-                    .format(";\n"),
+                cond,
                 yes.iter()
                     .map(|e| e.pretty_printer(self.depth + 1))
                     .format(";\n"),
@@ -148,6 +139,8 @@ impl Display for CSTMethod {
 impl Display for CSTBasicTypes {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
+            CSTBasicTypes::U64 => write!(f, "u64"),
+            CSTBasicTypes::U32 => write!(f, "u32"),
             CSTBasicTypes::U16 => write!(f, "u16"),
             CSTBasicTypes::U8 => write!(f, "u8"),
             CSTBasicTypes::Unit => write!(f, "()"),
@@ -158,11 +151,11 @@ impl Display for CSTBasicTypes {
 
 impl Display for CSTTypes {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        for _ in 0..self.depth {
+        for _ in 0..self.array_depth {
             write!(f, "[")?;
         }
         write!(f, "{}", self.basic)?;
-        for _ in 0..self.depth {
+        for _ in 0..self.array_depth {
             write!(f, "]")?;
         }
         Ok(())

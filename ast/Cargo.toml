@@ -6,3 +6,4 @@ edition = "2024"
 [dependencies]
 cst = { path = "../cst" }
 itertools = "0.14.0"
+colored = "3"

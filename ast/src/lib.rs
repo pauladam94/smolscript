@@ -21,10 +21,13 @@ pub type Identifier = usize;
 /// - type information is builtin the AST
 /// - informations from original file (variable names, position, ..) are removed
 pub fn cst_to_ast(cst: &CST) -> AST {
-    let CST { top_level, expr: block } = cst;
+    let CST {
+        top_level,
+        expr: block,
+    } = cst;
     AST {
         top_level: top_level.into_iter().map(|decl| Decl::from(decl)).collect(),
-        block: Expr::from(block),
+        expr: Expr::from(block),
     }
 }
 
@@ -42,29 +45,31 @@ pub mod formatting;
 /// information inside it that have all been resolved either by :
 /// - input from the user
 /// - or inferred by the type checker
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AST {
     pub top_level: VecDeque<Decl>,
-    pub block: Expr,
+    pub expr: Expr,
 }
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Decl {
     pub name: String,
     pub args: VecDeque<(String, Types)>,
     pub output_type: Types,
-    pub block: Expr,
+    pub expr: Expr,
 }
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Types {
     depth: u8,
     basic: BasicTypes,
 }
 pub mod types;
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BasicTypes {
+    U64,
+    U32,
     U16,
     U8,
     Bool,
@@ -72,7 +77,7 @@ pub enum BasicTypes {
 }
 
 /// Owned Expression of the AST.
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Expr {
     Index(VarIndex),
     MethodCall {
@@ -87,7 +92,7 @@ pub enum Expr {
     LetBindings {
         var: String,
         t: Types,
-        block: VecDeque<Expr>,
+        expr: Box<Expr>,
     },
     While {
         cond: String,
@@ -112,20 +117,20 @@ pub enum Expr {
     EmptyVec,
 }
 
-#[derive(Default, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct VarIndex {
     pub var: String,
     pub index: VecDeque<String>,
 }
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Method {
     Push,
     Pop,
     Replace,
 }
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Binary {
     Add,
     Sub,
@@ -136,7 +141,7 @@ pub enum Binary {
     LessThan,
 }
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Unary {
     Not,
 }

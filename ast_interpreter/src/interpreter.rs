@@ -2,7 +2,7 @@ use crate::{
     continuation::Continuation, continuation_stack::ContinuationStack, memory::Memory,
     state::State, value::Value,
 };
-use ast::{AST, Constant, Decl, Expr, VarIndex, Method};
+use ast::{AST, Constant, Decl, Expr, Method, VarIndex};
 use colored::Colorize;
 use itertools::Itertools;
 use std::{
@@ -20,7 +20,10 @@ pub struct Interpreter {
 
 impl Interpreter {
     pub fn new(ast: AST) -> Self {
-        let AST { top_level, block } = ast;
+        let AST {
+            top_level,
+            expr: block,
+        } = ast;
         Self {
             step: 0,
             top_level,
@@ -78,24 +81,28 @@ impl Interpreter {
                     .find(|decl| &decl.name == name)
                     .expect(&format!("'{}' function not found in the source. This should be checked by type checking.", name));
                 let mut block = VecDeque::from([]);
-                block.push_front(fun_decl.block.clone());
+                block.push_front(fun_decl.expr.clone());
 
                 for (var_call, (var_arg, t)) in args.iter().zip(fun_decl.args.iter()) {
                     block.push_front(Expr::LetBindings {
                         var: var_call.clone(),
                         t: t.clone(),
-                        block: VecDeque::from([Expr::Index({
+                        expr: Box::new(Expr::Index({
                             VarIndex {
                                 var: var_arg.clone(),
                                 index: VecDeque::from([]),
                             }
-                        })]),
+                        })),
                     });
                 }
 
                 Some(State::Block(block))
             }
-            Expr::LetBindings { var, block, t } => {
+            Expr::LetBindings {
+                var,
+                expr: block,
+                t,
+            } => {
                 todo!()
                 // Some(State::Value(Value::Constant(Constant::Unit)))
             }
@@ -106,9 +113,7 @@ impl Interpreter {
             }
             Expr::BinaryOp { op, lhs, rhs } => None,
             Expr::UnaryOp { lhs: var, op } => todo!(),
-            Expr::EmptyVec => {
-                Some(State::Value(Value::Array(vec![])))
-            }
+            Expr::EmptyVec => Some(State::Value(Value::Array(vec![]))),
             Expr::Block(block) => Some(State::Block(std::mem::take(block))),
         }
     }
@@ -149,7 +154,7 @@ impl Iterator for Interpreter {
                     let expr = block.pop_front().unwrap();
                     if let Expr::LetBindings {
                         var,
-                        block: block_let,
+                        expr: block_let,
                         t,
                     } = expr
                     {
@@ -157,7 +162,7 @@ impl Iterator for Interpreter {
                             var,
                             block: std::mem::take(block),
                         });
-                        *current = State::Block(block_let.clone());
+                        *current = State::Block(VecDeque::from([*block_let.clone()]));
                     } else {
                         continuation
                             .stack

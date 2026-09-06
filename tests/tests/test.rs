@@ -61,9 +61,12 @@ fn full_test([file, json_file]: [&str; 2]) {
 
     if ast != ast_2 {
         panic!(
-            "{}Printing then parsing again does not give the (structural) same AST.\n>> Second Parsing : \n{}",
+            "{} Printing then parsing again does not give the (structural) same AST.\n>> First Parsing :\n{}\n{:#?}\n>> Second Parsing : \n{}\n{:#?}",
             "[ERROR]".red(),
-            cst_2
+            ast,
+            ast,
+            ast_2,
+            ast_2
         )
     }
 

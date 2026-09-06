@@ -1,4 +1,4 @@
-use ast::{Constant, VarIndex};
+use ast::Constant;
 use itertools::Itertools;
 use std::{collections::VecDeque, fmt::Display};
 

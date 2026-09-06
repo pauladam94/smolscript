@@ -1,4 +1,4 @@
-use crate::{BasicTypes, Binary, Constant, Decl, Expr, VarIndex, Method, Types, Unary};
+use crate::{BasicTypes, Binary, Constant, Decl, Expr, Method, Types, Unary, VarIndex};
 use cst::{
     CSTBasicTypes, CSTBinary, CSTConstant, CSTDecl, CSTExpr, CSTIndex, CSTMethod, CSTTypes,
     CSTUnary,
@@ -21,13 +21,16 @@ impl<'src> From<&CSTDecl<'src>> for Decl {
                 .map(|(var, t)| (var.to_string(), Types::from(t)))
                 .collect(),
             output_type: Types::from(output_type),
-            block: Expr::from(block),
+            expr: Expr::from(block),
         }
     }
 }
 impl From<&CSTTypes> for Types {
     fn from(cst_types: &CSTTypes) -> Self {
-        let CSTTypes { depth, basic } = cst_types;
+        let CSTTypes {
+            array_depth: depth,
+            basic,
+        } = cst_types;
 
         Types {
             depth: *depth,
@@ -39,6 +42,8 @@ impl From<&CSTTypes> for Types {
 impl From<&CSTBasicTypes> for BasicTypes {
     fn from(cst_basic_types: &CSTBasicTypes) -> Self {
         match cst_basic_types {
+            CSTBasicTypes::U64 => BasicTypes::U64,
+            CSTBasicTypes::U32 => BasicTypes::U32,
             CSTBasicTypes::U16 => BasicTypes::U16,
             CSTBasicTypes::U8 => BasicTypes::U8,
             CSTBasicTypes::Unit => BasicTypes::Unit,
@@ -46,17 +51,6 @@ impl From<&CSTBasicTypes> for BasicTypes {
         }
     }
 }
-// impl From<&CSTBlock<'_>> for Expr {
-//     fn from(block: &CSTBlock<'_>) -> Self {
-//         let CSTBlock { statements } = block;
-//         Expr::Block(
-//             statements
-//                 .into_iter()
-//                 .map(|expr| Expr::from(expr))
-//                 .collect(),
-//         )
-//     }
-// }
 
 impl From<&CSTExpr<'_>> for Expr {
     fn from(expr: &CSTExpr<'_>) -> Self {
@@ -82,7 +76,7 @@ impl From<&CSTExpr<'_>> for Expr {
                         Expr::LetBindings {
                             var: format!("tmp_{i}"),
                             t: Types::UNIT,
-                            block: VecDeque::from([Expr::from(block)]),
+                            expr: Box::new(Expr::from(block)),
                         }
                     })
                     .collect();
@@ -92,11 +86,11 @@ impl From<&CSTExpr<'_>> for Expr {
                 });
                 Expr::Block(statements)
             }
-            CSTExpr::LetBindings { var, block } => Expr::LetBindings {
+            CSTExpr::LetBindings { var, expr } => Expr::LetBindings {
                 var: var.to_string(),
                 // todo the right type
                 t: Types::UNIT,
-                block: block.into_iter().map(|e| Expr::from(e)).collect(),
+                expr: Box::new(Expr::from(expr.as_ref())),
             },
             CSTExpr::While { cond, block } => Expr::While {
                 cond: cond.to_string(),
@@ -106,7 +100,7 @@ impl From<&CSTExpr<'_>> for Expr {
                 Expr::LetBindings {
                     var: String::from("tmp"),
                     t: Types::BOOL,
-                    block: cond.into_iter().map(|e| Expr::from(e)).collect(),
+                    expr: Box::new(Expr::from(cond.as_ref())),
                 },
                 Expr::If {
                     cond: String::from("tmp"),

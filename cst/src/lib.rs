@@ -101,7 +101,7 @@ pub enum CSTExpr<'src> {
     /// let [var] = [block]
     LetBindings {
         var: Span<'src>,
-        block: VecDeque<CSTExpr<'src>>,
+        expr: Box<CSTExpr<'src>>,
     },
     /// while ([cond]) { [block] }
     While {
@@ -110,7 +110,7 @@ pub enum CSTExpr<'src> {
     },
     /// if ([cond]) { [yes] } else { [no] }
     If {
-        cond: VecDeque<CSTExpr<'src>>,
+        cond: Box<CSTExpr<'src>>,
         yes: VecDeque<CSTExpr<'src>>,
         no: VecDeque<CSTExpr<'src>>,
     },
@@ -159,12 +159,14 @@ pub enum CSTMethod {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CSTTypes {
-    pub depth: u8,
+    pub array_depth: u8,
     pub basic: CSTBasicTypes,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum CSTBasicTypes {
+    U64,
+    U32,
     U16,
     U8,
     Unit,

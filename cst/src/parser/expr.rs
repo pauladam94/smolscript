@@ -11,14 +11,13 @@ use logos::Lexer;
 use std::collections::VecDeque;
 
 pub fn expr_parser<'src>(input: &mut Lexer<'src, Token>) -> Result<CSTExpr<'src>, ParseError> {
-    // match input.next() {}
     alt((
         ("[", cut("]")).map(|_| CSTExpr::EmptyVec),
         literal_parser().map(CSTExpr::Constant),
         ("let", cut((Token::Identifier, "=", expr_parser))).map(|(_, (var, _, expr))| {
             CSTExpr::LetBindings {
                 var,
-                block: VecDeque::from([expr]),
+                expr: Box::new(expr),
             }
         }),
         (
@@ -43,7 +42,7 @@ pub fn expr_parser<'src>(input: &mut Lexer<'src, Token>) -> Result<CSTExpr<'src>
             )),
         )
             .map(|(_, (_, cond, _, _, yes, _, _, _, no, _))| CSTExpr::If {
-                cond: VecDeque::from([cond]),
+                cond: Box::new(cond),
                 yes,
                 no,
             })

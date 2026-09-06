@@ -1,7 +1,28 @@
-use crate::{BasicTypes, Binary, Constant, Expr, VarIndex, Method, Types, Unary};
+use crate::{AST, BasicTypes, Binary, Constant, Decl, Expr, Method, Types, Unary, VarIndex};
 use itertools::Itertools;
-use std::fmt::{Display, Formatter, Result};
+use std::fmt::{Display, Formatter, Result, Write};
 
+impl Display for AST {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        write!(f, "{}\n{}", self.top_level.iter().format("\n"), self.expr)
+    }
+}
+
+impl Display for Decl {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        write!(
+            f,
+            "fn {}({}) -> {} {{",
+            self.name,
+            self.args
+                .iter()
+                .format_with(", ", |(x, t), f| f(&format_args!("{x} : {t}"))),
+            self.output_type
+        )?;
+        write!(Pad { f }, "\n{}", self.expr)?;
+        write!(f, "\n}}")
+    }
+}
 impl Display for Types {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         for _ in 0..self.depth {
@@ -17,6 +38,8 @@ impl Display for Types {
 impl Display for BasicTypes {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
+            BasicTypes::U64 => write!(f, "u64"),
+            BasicTypes::U32 => write!(f, "u32"),
             BasicTypes::U16 => write!(f, "u16"),
             BasicTypes::U8 => write!(f, "u8"),
             BasicTypes::Bool => write!(f, "bool"),
@@ -25,81 +48,54 @@ impl Display for BasicTypes {
     }
 }
 
-impl Expr {
-    pub fn pretty_printer<'a>(&'a self, depth: u8) -> PPExpr<'a> {
-        PPExpr { expr: self, depth }
+pub struct Pad<'a, 'b> {
+    f: &'a mut Formatter<'b>,
+}
+
+impl Write for Pad<'_, '_> {
+    fn write_str(&mut self, s: &str) -> Result {
+        for s in s.split_inclusive('\n') {
+            self.f.write_str(s)?;
+            if s.ends_with('\n') {
+                self.f.write_str("\t")?;
+            }
+        }
+        Ok(())
     }
 }
-pub struct PPExpr<'a> {
-    expr: &'a Expr,
-    depth: u8,
-}
-impl Display for PPExpr<'_> {
+
+impl Display for Expr {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        match self.expr {
+        match self {
             Expr::Index(index) => write!(f, "{index}"),
             Expr::MethodCall {
                 index,
                 method,
                 args,
-            } => {
-                write!(f, "{index}.{method}(")?;
-                let mut iter = args.iter();
-                if let Some(arg) = iter.next() {
-                    write!(f, "{arg}")?;
-                    for arg in args.iter() {
-                        write!(f, ", {arg}")?;
-                    }
-                }
-                write!(f, ")")
-            }
+            } => write!(f, "{index}.{method}({})", args.iter().format(", ")),
             Expr::FunCall { name, args } => {
                 write!(f, "{name}({})", args.iter().format(", "))
             }
-            Expr::LetBindings { var, t, block } => {
-                write!(
-                    f,
-                    "let {var} : {t} = {}",
-                    block
-                        .iter()
-                        .map(|b| b.pretty_printer(self.depth + 1))
-                        .format(";")
-                )
+            Expr::LetBindings { var, t, expr } => {
+                write!(f, "let {var} : {t} = {}", expr)
             }
             Expr::While { cond, block } => {
-                write!(
-                    f,
-                    "while {cond} {{{}}}",
-                    block
-                        .iter()
-                        .map(|e| e.pretty_printer(self.depth + 1))
-                        .format(";")
-                )
+                write!(f, "while {cond} {{")?;
+                write!(Pad { f }, "\n{}", block.iter().format(";\n"))?;
+                write!(f, "\n}}")
             }
-            Expr::If { cond, yes, no } => write!(
-                f,
-                "if {cond} {{{}}} else {{{}}}",
-                yes.iter()
-                    .map(|e| e.pretty_printer(self.depth + 1))
-                    .format(";"),
-                no.iter()
-                    .map(|e| e.pretty_printer(self.depth + 1))
-                    .format(";")
-            ),
+            Expr::If { cond, yes, no } => {
+                write!(f, "if {cond} {{")?;
+                write!(Pad { f }, "\n{}", yes.iter().format(";\n"))?;
+                write!(f, "\n}} else {{")?;
+                write!(Pad { f }, "\n{}", no.iter().format(";\n"))?;
+                write!(f, "\n}}")
+            }
             Expr::BinaryOp { lhs, op, rhs } => write!(f, "{lhs} {op} {rhs}"),
-            Expr::UnaryOp { lhs: var, op } => write!(f, "{op} {var}"),
+            Expr::UnaryOp { lhs, op } => write!(f, "{op} {lhs}"),
             Expr::Constant(constant) => write!(f, "{constant}"),
             Expr::EmptyVec => write!(f, "[]"),
-            Expr::Block(block) => {
-                let mut iter = block.iter();
-                if let Some(expr) = iter.next() {
-                    write!(f, "{}", expr.pretty_printer(self.depth + 1))?;
-                    for expr in iter {
-                        write!(f, ";\n{}", expr.pretty_printer(self.depth + 1))?;
-                    }
-                }
-                Ok(())
-            }
+            Expr::Block(block) => write!(f, "{}", block.iter().format(";\n")),
         }
     }
 }
