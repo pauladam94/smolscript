@@ -90,17 +90,17 @@ impl Interpreter {
                 let fun_decl = top_level
                     .iter()
                     .find(|decl| &decl.name == name)
-                    .unwrap_or_else(|| panic!("'{}' function not found in the source. This should be checked by type checking.", name));
+                    .unwrap_or_else(|| panic!("'{name}' function not found in the source. This should be checked by type checking."));
                 let mut block = VecDeque::from([]);
                 block.push_front(fun_decl.expr.clone());
 
                 for (var_call, (var_arg, t)) in args.iter().zip(fun_decl.args.iter()) {
                     block.push_front(Expr::LetBindings {
-                        var: var_arg.clone(),
+                        var: *var_arg,
                         t: t.clone(),
                         expr: Box::new(Expr::Index({
                             VarIndexing {
-                                var: var_call.clone(),
+                                var: *var_call,
                                 index: VecDeque::from([]),
                             }
                         })),
@@ -108,16 +108,13 @@ impl Interpreter {
                 }
                 Some(State::Block(block))
             }
-            Expr::LetBindings { .. } => {
-                unreachable!("")
-            }
-            Expr::While { .. } => {
+            Expr::LetBindings { .. } | Expr::While { .. } => {
                 unreachable!("")
             }
             Expr::If { cond, yes, no } => {
-                if let Value::Constant(Constant::Bool(true)) = memory.get_value(cond) {
+                if let Value::Constant(Constant::Bool(true)) = memory.get_value(*cond) {
                     Some(State::Block(std::mem::take(yes)))
-                } else if let Value::Constant(Constant::Bool(false)) = memory.get_value(cond) {
+                } else if let Value::Constant(Constant::Bool(false)) = memory.get_value(*cond) {
                     Some(State::Block(std::mem::take(no)))
                 } else {
                     unreachable!()
@@ -128,11 +125,11 @@ impl Interpreter {
             }
             Expr::BinaryOp { op, lhs, rhs } => Some(State::Value(
                 memory
-                    .get_value(lhs)
-                    .compute_binary(*op, memory.get_value(rhs)),
+                    .get_value(*lhs)
+                    .compute_binary(*op, memory.get_value(*rhs)),
             )),
             Expr::UnaryOp { lhs, op } => {
-                Some(State::Value(memory.get_value(lhs).compute_unary(*op)))
+                Some(State::Value(memory.get_value(*lhs).compute_unary(*op)))
             }
             Expr::EmptyVec => Some(State::Value(Value::Array(vec![]))),
             Expr::Block(block) => Some(State::Block(std::mem::take(block))),
@@ -154,6 +151,7 @@ impl DoubleEndedIterator for Interpreter {
 impl Iterator for Interpreter {
     type Item = ();
 
+    // todo break this function into multiple function
     fn next(&mut self) -> Option<()> {
         self.history.push((
             self.state.clone(),
@@ -169,11 +167,9 @@ impl Iterator for Interpreter {
             history: _,
         } = self;
         *step += 1;
-        if *step >= 10000 {
-            panic!("Too much step done !!")
-        }
+        assert!(*step < 10000, "Too much step done !!");
         if let State::Value(_) = state
-            && continuation.len() == 0
+            && continuation.is_empty()
         {
             // We finished execution
             return None;
@@ -193,7 +189,7 @@ impl Iterator for Interpreter {
                             .push(Continuation::WhileCont { cond: *cond, body });
                         *state = State::Block(VecDeque::from([*new_state]));
                     } else if let Some(new_state) = Self::step_expr(&mut expr, memory, top_level) {
-                        *state = new_state
+                        *state = new_state;
                     }
                     Some(())
                 }
@@ -237,7 +233,7 @@ impl Iterator for Interpreter {
                     let cont = continuation.pop().unwrap();
                     match cont {
                         Continuation::LetCont { var, block } => {
-                            memory.bind_var(var.clone(), std::mem::take(value));
+                            memory.bind_var(var, std::mem::take(value));
                             continuation.stack.push(Continuation::DropCont(var));
                             *state = State::Block(block);
                         }
@@ -263,7 +259,7 @@ impl Iterator for Interpreter {
                                     }])));
                                 *state = State::Block(new_body);
                             } else if let Value::Constant(Constant::Bool(false)) = value {
-                                *state = State::Value(Value::Constant(Constant::Unit))
+                                *state = State::Value(Value::Constant(Constant::Unit));
                             } else {
                                 unreachable!(
                                     "The inside a while condition must of type 'bool' but we got '{}'. Type checking should have avoided this.",

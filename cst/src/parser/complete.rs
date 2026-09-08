@@ -1,5 +1,7 @@
 use crate::{
-    CST, CSTExpr, lexer::Token, parser::{Parser, block::block_parser, decl::decl_parser, error::ParseError},
+    CST, CSTExpr,
+    lexer::Token,
+    parser::{Parser, block::block_parser, decl::decl_parser, error::ParseError},
 };
 use logos::Lexer;
 

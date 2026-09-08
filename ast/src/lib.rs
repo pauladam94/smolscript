@@ -1,3 +1,4 @@
+use crate::from_cst::CSTConverter;
 use cst::CST;
 use std::collections::VecDeque;
 
@@ -21,13 +22,14 @@ pub type Identifier = usize;
 /// - type information is builtin the AST
 /// - informations from original file (variable names, position, ..) are removed
 pub fn cst_to_ast(cst: &CST) -> AST {
-    let CST {
-        top_level,
-        expr: block,
-    } = cst;
+    let CST { top_level, expr } = cst;
+    let mut converter = CSTConverter::default();
     AST {
-        top_level: top_level.iter().map(Decl::from).collect(),
-        expr: Expr::from(block),
+        top_level: top_level
+            .iter()
+            .map(|decl| converter.convert_decl(decl))
+            .collect(),
+        expr: converter.convert_expr(expr),
     }
 }
 
@@ -53,8 +55,8 @@ pub struct AST {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Decl {
-    pub name: String,
-    pub args: VecDeque<(String, Types)>,
+    pub name: Identifier,
+    pub args: VecDeque<(Identifier, Types)>,
     pub output_type: Types,
     pub expr: Expr,
 }
@@ -83,14 +85,14 @@ pub enum Expr {
     MethodCall {
         index: VarIndexing,
         method: Method,
-        args: VecDeque<String>,
+        args: VecDeque<Identifier>,
     },
     FunCall {
-        name: String,
-        args: VecDeque<String>,
+        name: Identifier,
+        args: VecDeque<Identifier>,
     },
     LetBindings {
-        var: String,
+        var: Identifier,
         t: Types,
         expr: Box<Expr>,
     },
@@ -99,17 +101,17 @@ pub enum Expr {
         body: VecDeque<Expr>,
     },
     If {
-        cond: String,
+        cond: Identifier,
         yes: VecDeque<Expr>,
         no: VecDeque<Expr>,
     },
     BinaryOp {
-        lhs: String,
+        lhs: Identifier,
         op: Binary,
-        rhs: String,
+        rhs: Identifier,
     },
     UnaryOp {
-        lhs: String,
+        lhs: Identifier,
         op: Unary,
     },
     Block(VecDeque<Expr>),
@@ -119,8 +121,8 @@ pub enum Expr {
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct VarIndexing {
-    pub var: String,
-    pub index: VecDeque<String>,
+    pub var: Identifier,
+    pub index: VecDeque<Identifier>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -168,6 +170,7 @@ impl Constant {
             | (Mult, Bool(_), _)
             | (Sub, Bool(_), _)
             | (LessThan, Bool(_), Bool(_)) => {
+                // dbg!(op, self, rhs);
                 unreachable!("Type checking should prevent this operation.")
             }
             (Equal, l, r) => Bool(l == r),

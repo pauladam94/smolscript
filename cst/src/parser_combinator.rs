@@ -16,7 +16,7 @@ pub mod alt;
 /// Returns the tuple of the result of all the parsers given.
 /// If one parser fail then the sequence fails.
 ///
-/// Suppose having a [block_parser] that parses a block.
+/// Suppose having a [`block_parser`] that parses a block.
 /// To parse a block surrounded by parentheses you can write :
 ///
 /// ```rust

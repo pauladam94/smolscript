@@ -1,25 +1,16 @@
-pub enum Instruction {
-
-}
+pub enum Instruction {}
 
 pub type Label = usize;
 
 pub enum JumpInstruction {
-    Return 
+    Return,
 }
 
 pub struct Block {
     instructions: Vec<Instruction>,
-    exit: JumpInstruction
+    exit: JumpInstruction,
 }
-
 
 pub struct SSA {
-    blocks: Vec<Block> 
+    blocks: Vec<Block>,
 }
-
-
-
-
-
-

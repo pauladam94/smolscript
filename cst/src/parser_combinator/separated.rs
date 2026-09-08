@@ -23,7 +23,7 @@ where
     )
         .map(|(mut v, x)| {
             if let Some(x) = x {
-                v.push_back(x)
+                v.push_back(x);
             }
             v
         })

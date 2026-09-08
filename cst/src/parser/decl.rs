@@ -1,7 +1,10 @@
 use crate::{
-    CSTDecl, CSTExpr, CSTTypes, lexer::Token, parser::{
+    CSTDecl, CSTExpr, CSTTypes,
+    lexer::Token,
+    parser::{
         Parser, args::args_parser, block::block_parser, error::ParseError, types::types_parser,
-    }, parser_combinator::{cut::cut, opt::opt, repeat::repeat},
+    },
+    parser_combinator::{cut::cut, opt::opt, repeat::repeat},
 };
 use logos::Lexer;
 use std::collections::VecDeque;

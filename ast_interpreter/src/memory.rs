@@ -1,5 +1,5 @@
 use crate::value::Value;
-use ast::{Constant, VarIndexing};
+use ast::{Constant, Identifier, VarIndexing};
 use itertools::Itertools;
 use std::{
     collections::VecDeque,
@@ -8,61 +8,61 @@ use std::{
 
 #[derive(Debug, Clone)]
 pub struct Memory {
-    pub stack: Vec<(String, Value)>,
+    pub stack: Vec<(Identifier, Value)>,
 }
 
 impl Memory {
     pub const EMPTY: Self = Memory { stack: vec![] };
 
-    pub fn bind_var(&mut self, var: String, value: Value) {
-        self.stack.push((var, value))
+    pub fn bind_var(&mut self, var: Identifier, value: Value) {
+        self.stack.push((var, value));
     }
-    pub fn get_value(&self, var: &String) -> Value {
+    pub fn get_value(&self, var: Identifier) -> Value {
         self.stack
             .iter()
             .rev()
-            .find(|(x, _)| x == var)
-            .map(|(_, v)| v.clone())
-            .unwrap_or_else(|| {
-                unreachable!("Variable '{var}' should be in the stack but is not find.")
-            })
+            .find(|(x, _)| *x == var)
+            .map_or_else(
+                || unreachable!("Variable '{var}' should be in the stack but is not find."),
+                |(_, v)| v.clone(),
+            )
     }
-    pub fn get_ref_value(&self, var: &String) -> &Value {
+    pub fn get_ref_value(&self, var: Identifier) -> &Value {
         self.stack
             .iter()
             .rev()
-            .find(|(x, _)| x == var)
-            .map(|(_, v)| v)
-            .unwrap_or_else(|| {
-                unreachable!("Variable '{var}' should be in the stack but is not find.")
-            })
+            .find(|(x, _)| *x == var)
+            .map_or_else(
+                || unreachable!("Variable '{var}' should be in the stack but is not find."),
+                |(_, v)| v,
+            )
     }
-    pub fn get_ref_mut_value(&mut self, var: &String) -> &mut Value {
+    pub fn get_ref_mut_value(&mut self, var: Identifier) -> &mut Value {
         self.stack
             .iter_mut()
             .rev()
-            .find(|(x, _)| x == var)
-            .map(|(_, v)| v)
-            .unwrap_or_else(|| {
-                unreachable!("Variable '{var}' should be in the stack but is not find.")
-            })
+            .find(|(x, _)| *x == var)
+            .map_or_else(
+                || unreachable!("Variable '{var}' should be in the stack but is not find."),
+                |(_, v)| v,
+            )
     }
-    pub fn drop(&mut self, var: String) {
+    pub fn drop(&mut self, var: Identifier) {
         let index_var = self.stack.iter().position(|(x, _)| x == &var).unwrap();
         self.stack.remove(index_var);
     }
     pub fn get_index_value(&self, index: VarIndexing) -> Value {
         let VarIndexing { var, index } = index;
-        let mut value = self.get_ref_value(&var);
-        for y in index.iter() {
+        let mut value = self.get_ref_value(var);
+        for y in &index {
             match value {
                 Value::Array(array) => {
-                    if let Value::Constant(Constant::Int(i)) = self.get_value(y) {
+                    if let Value::Constant(Constant::Int(i)) = self.get_value(*y) {
                         value = &array[i as usize];
                     } else {
                         unreachable!(
                             "The index value is not an integer. The value is this one : '{}'. From this variable '{y}'. This should be avoided by type checking.",
-                            self.get_value(y)
+                            self.get_value(*y)
                         )
                     }
                 }
@@ -77,11 +77,11 @@ impl Memory {
     }
 
     // Push operation of this form : [index].push([arg])
-    pub fn push_method(&mut self, index: VarIndexing, arg: String) {
+    pub fn push_method(&mut self, index: VarIndexing, arg: Identifier) {
         let VarIndexing { var, index } = index;
-        let arg_value = self.get_value(&arg);
-        let index_values: Vec<Value> = index.iter().map(|y| self.get_value(y)).collect();
-        let mut value = self.get_ref_mut_value(&var);
+        let arg_value = self.get_value(arg);
+        let index_values: Vec<Value> = index.iter().map(|y| self.get_value(*y)).collect();
+        let mut value = self.get_ref_mut_value(var);
         for v in index_values {
             if let Value::Array(array) = value
                 && let Value::Constant(Constant::Int(i)) = v
@@ -97,11 +97,11 @@ impl Memory {
     }
 
     // Replace operation of this form : [index].replace([arg])
-    pub fn replace_method(&mut self, index: VarIndexing, arg: String) -> Value {
+    pub fn replace_method(&mut self, index: VarIndexing, arg: Identifier) -> Value {
         let VarIndexing { var, index } = index;
-        let arg_value = self.get_value(&arg);
-        let index_values: Vec<Value> = index.iter().map(|y| self.get_value(y)).collect();
-        let mut value = self.get_ref_mut_value(&var);
+        let arg_value = self.get_value(arg);
+        let index_values: Vec<Value> = index.iter().map(|y| self.get_value(*y)).collect();
+        let mut value = self.get_ref_mut_value(var);
         for v in index_values {
             if let Value::Array(array) = value
                 && let Value::Constant(Constant::Int(i)) = v
@@ -122,7 +122,7 @@ impl Memory {
         let index_vec: VecDeque<usize> = index
             .into_iter()
             .map(|y| {
-                if let Value::Constant(Constant::Int(i)) = self.get_value(&y) {
+                if let Value::Constant(Constant::Int(i)) = self.get_value(y) {
                     i as usize
                 } else {
                     unreachable!("")
@@ -135,7 +135,23 @@ impl Memory {
     }
 
     pub(crate) fn len_method(&self, index: VarIndexing) -> usize {
-        todo!()
+        let VarIndexing { var, index } = index;
+        let index_values: Vec<Value> = index.iter().map(|y| self.get_value(*y)).collect();
+        let mut value = self.get_ref_value(var);
+        for v in index_values {
+            if let Value::Array(array) = value
+                && let Value::Constant(Constant::Int(i)) = v
+            {
+                value = &array[i as usize];
+            } else {
+                unreachable!("Indexing inside a non array OR with not an integer.")
+            }
+        }
+        if let Value::Array(array) = value {
+            array.len()
+        } else {
+            unreachable!("Calling 'len' method not on an array. Typechecking should avoid this.")
+        }
     }
 }
 
@@ -146,7 +162,7 @@ impl Display for Memory {
             "{}",
             self.stack
                 .iter()
-                .format_with("\n", |(x, v), f| f(&format_args!("{x} = {v}")))
+                .format_with("\n", |(x, v), f| f(&format_args!("x{x} = {v}")))
         )
     }
 }

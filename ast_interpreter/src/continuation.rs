@@ -1,13 +1,19 @@
-use ast::Expr;
+use ast::{Expr, Identifier};
 use itertools::Itertools;
 use std::{collections::VecDeque, fmt::Display};
 
 #[derive(Debug, Clone)]
 pub enum Continuation {
-    LetCont { var: String, block: VecDeque<Expr> },
+    LetCont {
+        var: Identifier,
+        block: VecDeque<Expr>,
+    },
     BlockCont(VecDeque<Expr>),
-    DropCont(String),
-    WhileCont { cond: Expr, body: VecDeque<Expr> },
+    DropCont(Identifier),
+    WhileCont {
+        cond: Expr,
+        body: VecDeque<Expr>,
+    },
 }
 
 impl Display for Continuation {

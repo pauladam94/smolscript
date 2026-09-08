@@ -21,10 +21,7 @@ pub struct State<'src> {
 impl<'src> State<'src> {
     pub fn new(original_file: &'src str) -> State<'src> {
         let cst = cst_parser(original_file).unwrap_or_else(|e| {
-            panic!(
-                "Failed to parse this file '{}'.\nGot this error : \n{}",
-                original_file, e
-            )
+            panic!("Failed to parse this file '{original_file}'.\nGot this error : \n{e}",)
         });
         let ast = cst_to_ast(&cst);
 

@@ -107,7 +107,7 @@ where
 /// A Given [&str] implements the [Parser] trait
 /// by looking at the next token to see if it's string
 /// representation is the same as the string
-impl<'src> Parser<Lexer<'src, Token>> for &str {
+impl Parser<Lexer<'_, Token>> for &str {
     type Output = Pos;
     fn parse(&mut self, input: &mut Lexer<Token>) -> Result<Pos, ParseError> {
         let past_input = input.clone();
@@ -126,8 +126,7 @@ impl<'src> Parser<Lexer<'src, Token>> for &str {
             Some(Err(())) | None => {
                 *input = past_input;
                 Err(ParseError::default().with_error(format!(
-                    "Expected the &str '{}' but got no more tokens in stream",
-                    self
+                    "Expected the &str '{self}' but got no more tokens in stream",
                 )))
             }
         }

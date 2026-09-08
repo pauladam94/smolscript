@@ -6,7 +6,6 @@ use clap::Parser;
 pub struct Args {
     #[arg(short, long)]
     pub path: String,
-
     // #[arg(short, long)]
     // name: String,
 

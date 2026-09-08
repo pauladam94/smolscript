@@ -1,6 +1,4 @@
 
-
-
 fn fibo(n : u64) -> u64 {
 	let u0 = 1;
 	let u1 = 1;
@@ -12,6 +10,5 @@ fn fibo(n : u64) -> u64 {
 	};
 	u0
 }
-
 
 fibo(25)

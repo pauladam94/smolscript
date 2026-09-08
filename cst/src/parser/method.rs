@@ -1,7 +1,8 @@
 use crate::{
     CSTMethod,
     lexer::Token,
-    parser::{Parser, error::ParseError}, parser_combinator::alt::alt,
+    parser::{Parser, error::ParseError},
+    parser_combinator::alt::alt,
 };
 use logos::Lexer;
 
