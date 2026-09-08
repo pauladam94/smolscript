@@ -73,9 +73,7 @@ impl Interpreter {
                         args.is_empty(),
                         "There should be no argument to the 'pop' method. This should be checked by type checking."
                     );
-                    // todo recup value of the pop
-                    memory.pop_method(std::mem::take(index));
-                    None
+                    Some(State::Value(memory.pop_method(std::mem::take(index))))
                 }
                 Method::Len => {
                     assert!(

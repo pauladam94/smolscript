@@ -8,7 +8,7 @@ use std::collections::VecDeque;
 /// Debruijn indexes, we are not using Debruijn indexes.
 ///
 /// The main constrains we have is, if two [Span] are equal (not in position but
-/// their underlying string) they their identifier is the same.
+/// their underlying string) then their identifier is the same.
 pub type Identifier = usize;
 
 /// Main function of this crate.
@@ -33,7 +33,8 @@ pub fn cst_to_ast(cst: &CST) -> AST {
     }
 }
 
-/// This is the module that contains all of the convertion code for the CST
+/// This is the module that contains all of the convertion code to go
+/// from a CST to the AST
 pub mod from_cst;
 
 /// Module containing all [Display] implementation for the AST
