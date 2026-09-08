@@ -1,10 +1,29 @@
-use crate::{AST, BasicTypes, Binary, Constant, Decl, Expr, Method, Types, Unary, VarIndex};
+use crate::{AST, BasicTypes, Binary, Constant, Decl, Expr, Method, Types, Unary, VarIndexing};
 use itertools::Itertools;
 use std::fmt::{Display, Formatter, Result, Write};
 
+struct Pad<'a, 'b> {
+    f: &'a mut Formatter<'b>,
+}
+
+impl Write for Pad<'_, '_> {
+    fn write_str(&mut self, s: &str) -> Result {
+        for s in s.split_inclusive('\n') {
+            self.f.write_str(s)?;
+            if s.ends_with('\n') {
+                self.f.write_str("\t")?;
+            }
+        }
+        Ok(())
+    }
+}
+
 impl Display for AST {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        write!(f, "{}\n{}", self.top_level.iter().format("\n"), self.expr)
+        for decl in &self.top_level {
+            writeln!(f, "{decl}")?;
+        }
+        write!(f, "{}", self.expr)
     }
 }
 
@@ -23,6 +42,7 @@ impl Display for Decl {
         write!(f, "\n}}")
     }
 }
+
 impl Display for Types {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         for _ in 0..self.depth {
@@ -35,6 +55,7 @@ impl Display for Types {
         Ok(())
     }
 }
+
 impl Display for BasicTypes {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
@@ -45,22 +66,6 @@ impl Display for BasicTypes {
             BasicTypes::Bool => write!(f, "bool"),
             BasicTypes::Unit => write!(f, "unit"),
         }
-    }
-}
-
-pub struct Pad<'a, 'b> {
-    f: &'a mut Formatter<'b>,
-}
-
-impl Write for Pad<'_, '_> {
-    fn write_str(&mut self, s: &str) -> Result {
-        for s in s.split_inclusive('\n') {
-            self.f.write_str(s)?;
-            if s.ends_with('\n') {
-                self.f.write_str("\t")?;
-            }
-        }
-        Ok(())
     }
 }
 
@@ -79,8 +84,8 @@ impl Display for Expr {
             Expr::LetBindings { var, t, expr } => {
                 write!(f, "let {var} : {t} = {}", expr)
             }
-            Expr::While { cond, block } => {
-                write!(f, "while {cond} {{")?;
+            Expr::While { cond, body: block } => {
+                write!(f, "while ({cond}) {{")?;
                 write!(Pad { f }, "\n{}", block.iter().format(";\n"))?;
                 write!(f, "\n}}")
             }
@@ -100,7 +105,7 @@ impl Display for Expr {
     }
 }
 
-impl Display for VarIndex {
+impl Display for VarIndexing {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         write!(f, "{}", self.var)?;
         for var in self.index.iter() {
@@ -136,6 +141,7 @@ impl Display for Method {
             Method::Push => write!(f, "push"),
             Method::Pop => write!(f, "pop"),
             Method::Replace => write!(f, "replace"),
+            Method::Len => write!(f, "len"),
         }
     }
 }

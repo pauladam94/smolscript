@@ -26,7 +26,7 @@ pub fn cst_to_ast(cst: &CST) -> AST {
         expr: block,
     } = cst;
     AST {
-        top_level: top_level.into_iter().map(|decl| Decl::from(decl)).collect(),
+        top_level: top_level.iter().map(Decl::from).collect(),
         expr: Expr::from(block),
     }
 }
@@ -79,9 +79,9 @@ pub enum BasicTypes {
 /// Owned Expression of the AST.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Expr {
-    Index(VarIndex),
+    Index(VarIndexing),
     MethodCall {
-        index: VarIndex,
+        index: VarIndexing,
         method: Method,
         args: VecDeque<String>,
     },
@@ -95,8 +95,8 @@ pub enum Expr {
         expr: Box<Expr>,
     },
     While {
-        cond: String,
-        block: VecDeque<Expr>,
+        cond: Box<Expr>,
+        body: VecDeque<Expr>,
     },
     If {
         cond: String,
@@ -118,19 +118,20 @@ pub enum Expr {
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
-pub struct VarIndex {
+pub struct VarIndexing {
     pub var: String,
     pub index: VecDeque<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Method {
     Push,
     Pop,
     Replace,
+    Len,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Binary {
     Add,
     Sub,
@@ -141,15 +142,41 @@ pub enum Binary {
     LessThan,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Unary {
     Not,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub enum Constant {
-    Int(u16),
+    Int(u64),
     Bool(bool),
     #[default]
     Unit,
+}
+impl Constant {
+    pub fn compute_binary(self, op: Binary, rhs: Constant) -> Constant {
+        use Binary::*;
+        use Constant::*;
+        match (op, self, rhs) {
+            (_, Unit, _)
+            | (_, _, Unit)
+            | (_, Int(_), Bool(_))
+            | (_, Bool(_), Int(_))
+            | (Add, Bool(_), _)
+            | (Div, Bool(_), _)
+            | (Mult, Bool(_), _)
+            | (Sub, Bool(_), _)
+            | (LessThan, Bool(_), Bool(_)) => {
+                unreachable!("Type checking should prevent this operation.")
+            }
+            (Equal, l, r) => Bool(l == r),
+            (NotEqual, l, r) => Bool(l != r),
+            (Add, Int(l), Int(r)) => Int(l + r),
+            (Sub, Int(l), Int(r)) => Int(l - r),
+            (Mult, Int(l), Int(r)) => Int(l * r),
+            (Div, Int(l), Int(r)) => Int(l / r),
+            (LessThan, Int(l), Int(r)) => Bool(l < r),
+        }
+    }
 }

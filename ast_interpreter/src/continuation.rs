@@ -2,20 +2,25 @@ use ast::Expr;
 use itertools::Itertools;
 use std::{collections::VecDeque, fmt::Display};
 
+#[derive(Debug, Clone)]
 pub enum Continuation {
     LetCont { var: String, block: VecDeque<Expr> },
     BlockCont(VecDeque<Expr>),
     DropCont(String),
+    WhileCont { cond: Expr, body: VecDeque<Expr> },
 }
 
 impl Display for Continuation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Continuation::LetCont { var, block } => {
-                write!(f, "let {var} = _ in {}", block.iter().format(";\n"))
+                write!(f, "let {var} = □;\n{}", block.iter().format(";\n"))
             }
-            Continuation::BlockCont(block) => write!(f, "{{ _; {}}}", block.iter().format(";\n")),
+            Continuation::BlockCont(block) => write!(f, "{{ □; {}}}", block.iter().format(";\n")),
             Continuation::DropCont(var) => write!(f, "drop({var})"),
+            Continuation::WhileCont { cond, body } => {
+                write!(f, "while(□ | {cond}) {{{}}}", body.iter().format(";\n"))
+            }
         }
     }
 }

@@ -7,12 +7,6 @@ pub struct Span<'src> {
     pub ident: &'src str,
 }
 
-impl<'src> Span<'src> {
-    pub fn to_string(self) -> String {
-        self.ident.to_string()
-    }
-}
-
 impl<'src> Display for Span<'src> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.ident)

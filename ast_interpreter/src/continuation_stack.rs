@@ -1,6 +1,7 @@
 use crate::continuation::Continuation;
 use std::fmt::Display;
 
+#[derive(Debug, Clone)]
 pub struct ContinuationStack {
     pub stack: Vec<Continuation>,
 }
@@ -10,6 +11,9 @@ impl ContinuationStack {
 
     pub fn len(&self) -> usize {
         self.stack.len()
+    }
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
     pub fn pop(&mut self) -> Option<Continuation> {
         self.stack.pop()

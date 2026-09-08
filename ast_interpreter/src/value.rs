@@ -1,4 +1,4 @@
-use ast::Constant;
+use ast::{Binary, Constant, Unary};
 use itertools::Itertools;
 use std::{collections::VecDeque, fmt::Display};
 
@@ -10,7 +10,7 @@ pub enum Value {
 
 impl Value {
     pub fn pop(&mut self, mut index: VecDeque<usize>) -> Value {
-        if index.len() == 0 {
+        if index.is_empty() {
             match self {
                 Value::Constant(_) => {
                     unreachable!("Pop done on a constant. This should be avoided at type checking.")
@@ -25,6 +25,28 @@ impl Value {
                 }
                 Value::Array(values) => values[i].pop(index),
             }
+        }
+    }
+
+    pub(crate) fn compute_binary(self, op: Binary, rhs: Value) -> Value {
+        use Value::*;
+        match (op, self, rhs) {
+            (_, Constant(_), Array(_)) | (_, Array(_), Constant(_)) => {
+                unreachable!("Type checking should prevent this operation.")
+            }
+            (op, Constant(lhs), Constant(rhs)) => Value::Constant(lhs.compute_binary(op, rhs)),
+            (op, Array(lhs), Array(rhs)) => Value::Array(
+                lhs.into_iter()
+                    .zip(rhs)
+                    .map(|(l, r)| l.compute_binary(op, r))
+                    .collect(),
+            ),
+        }
+    }
+    pub fn compute_unary(self, op: Unary) -> Value {
+        match (op, self) {
+            (Unary::Not, Value::Constant(Constant::Bool(b))) => Value::Constant(Constant::Bool(!b)),
+            _ => todo!(),
         }
     }
 }

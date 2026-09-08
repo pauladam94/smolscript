@@ -10,6 +10,7 @@ pub fn method_parser<'src>(input: &mut Lexer<'src, Token>) -> Result<CSTMethod, 
         "replace".map(|_| CSTMethod::Replace),
         "push".map(|_| CSTMethod::Push),
         "pop".map(|_| CSTMethod::Pop),
+        "len".map(|_| CSTMethod::Len),
     ))
     .parse(input)
 }

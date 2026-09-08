@@ -24,6 +24,7 @@ fn full_test([file, json_file]: [&str; 2]) {
     use TestType::*;
     let test_info: TestInfo = serde_json::from_str(json_file).unwrap();
 
+    println!("{} :\n{}", "[ORIGINAL FILE]".purple(), file);
     // Parsing of the original file
     let file_parse = cst_parser(file);
 
@@ -44,11 +45,7 @@ fn full_test([file, json_file]: [&str; 2]) {
         .unwrap_or_else(|err| panic!("Parsing should success but failed with errors :\n{err}"));
 
     // We print the CST to see what it looks like
-    println!(
-        "{}, Print of the CST:\n{}\n---",
-        "[SUCCESS] Parsing".green(),
-        cst
-    );
+    println!("{} : \n{}\n---", "[SUCCESS] Parsing of CST".green(), cst,);
 
     // We get the
     let cst_print = format!("{cst}");
@@ -57,16 +54,17 @@ fn full_test([file, json_file]: [&str; 2]) {
     });
 
     let ast = cst_to_ast(&cst);
+    println!("{} : \n{}\n---", "[SUCCESS] Parsing of AST", ast);
     let ast_2 = cst_to_ast(&cst_2);
 
     if ast != ast_2 {
         panic!(
-            "{} Printing then parsing again does not give the (structural) same AST.\n>> First Parsing :\n{}\n{:#?}\n>> Second Parsing : \n{}\n{:#?}",
+            "{} Printing then parsing again does not give the (structural) same AST.
+>> Second CST :\n{}
+>> Second AST : \n{}",
             "[ERROR]".red(),
-            ast,
-            ast,
+            cst_2,
             ast_2,
-            ast_2
         )
     }
 
@@ -101,7 +99,12 @@ fn full_test([file, json_file]: [&str; 2]) {
         panic!("The execution stopped but it crashed. It didn't end with a value")
     });
 
-    if expected_value != value {
-        panic!("{}Expected", "[ERROR]".red());
-    }
+    assert_eq!(
+        expected_value,
+        value,
+        "{} Expected this value '{}' but got '{}'.",
+        "[ERROR]".red(),
+        expected_value,
+        value
+    );
 }

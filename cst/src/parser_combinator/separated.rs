@@ -1,4 +1,7 @@
-use crate::{parser::Parser, parser_combinator::{opt::opt, repeat::repeat}};
+use crate::{
+    parser::Parser,
+    parser_combinator::{opt::opt, repeat::repeat},
+};
 use std::{collections::VecDeque, ops::RangeBounds};
 
 pub fn separated<I, O1, O2, R, P, S>(
@@ -15,15 +18,13 @@ where
     R: RangeBounds<u16> + std::fmt::Debug,
 {
     (
-        repeat(range, ((parser.clone(), sep)).map(|(s, _)| s)),
+        repeat(range, (parser.clone(), sep).map(|(s, _)| s)),
         opt(parser),
     )
         .map(|(mut v, x)| {
-            match x {
-                Some(x) => v.push_back(x),
-                None => (),
+            if let Some(x) = x {
+                v.push_back(x)
             }
             v
         })
 }
-

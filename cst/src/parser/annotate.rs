@@ -10,6 +10,5 @@ pub fn annotate(input_str: &str, input: Lexer<'_, Token>, title: &str) -> String
             .fold(false),
     )];
 
-    let s = format!("{}", Renderer::styled().render(report));
-    s
+    Renderer::styled().render(report)
 }

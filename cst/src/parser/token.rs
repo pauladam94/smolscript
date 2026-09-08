@@ -18,12 +18,12 @@ impl<'src> Parser<Lexer<'src, Token>> for Token {
                         ident: input.slice(),
                     })
                 } else {
-                    Err(ParseError::new().with_error(format!(
+                    Err(ParseError::default().with_error(format!(
                         "Got the token '{t}' when waiting for the token '{self}'"
                     )))
                 }
             }
-            Some(Err(_)) | None => Err(ParseError::new().with_error(format!(
+            Some(Err(_)) | None => Err(ParseError::default().with_error(format!(
                 "No token anymore when waiting for '{self}' at position : {}",
                 input.pos()
             ))),

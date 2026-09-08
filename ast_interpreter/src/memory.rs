@@ -1,11 +1,12 @@
 use crate::value::Value;
-use ast::{Constant, VarIndex};
+use ast::{Constant, VarIndexing};
 use itertools::Itertools;
 use std::{
     collections::VecDeque,
     fmt::{Display, Formatter, Result},
 };
 
+#[derive(Debug, Clone)]
 pub struct Memory {
     pub stack: Vec<(String, Value)>,
 }
@@ -16,14 +17,15 @@ impl Memory {
     pub fn bind_var(&mut self, var: String, value: Value) {
         self.stack.push((var, value))
     }
-
     pub fn get_value(&self, var: &String) -> Value {
         self.stack
             .iter()
             .rev()
             .find(|(x, _)| x == var)
             .map(|(_, v)| v.clone())
-            .unwrap()
+            .unwrap_or_else(|| {
+                unreachable!("Variable '{var}' should be in the stack but is not find.")
+            })
     }
     pub fn get_ref_value(&self, var: &String) -> &Value {
         self.stack
@@ -31,7 +33,9 @@ impl Memory {
             .rev()
             .find(|(x, _)| x == var)
             .map(|(_, v)| v)
-            .unwrap()
+            .unwrap_or_else(|| {
+                unreachable!("Variable '{var}' should be in the stack but is not find.")
+            })
     }
     pub fn get_ref_mut_value(&mut self, var: &String) -> &mut Value {
         self.stack
@@ -39,16 +43,16 @@ impl Memory {
             .rev()
             .find(|(x, _)| x == var)
             .map(|(_, v)| v)
-            .unwrap()
+            .unwrap_or_else(|| {
+                unreachable!("Variable '{var}' should be in the stack but is not find.")
+            })
     }
-
     pub fn drop(&mut self, var: String) {
         let index_var = self.stack.iter().position(|(x, _)| x == &var).unwrap();
         self.stack.remove(index_var);
     }
-
-    pub fn get_index_value(&self, index: VarIndex) -> Value {
-        let VarIndex { var, index } = index;
+    pub fn get_index_value(&self, index: VarIndexing) -> Value {
+        let VarIndexing { var, index } = index;
         let mut value = self.get_ref_value(&var);
         for y in index.iter() {
             match value {
@@ -73,8 +77,8 @@ impl Memory {
     }
 
     // Push operation of this form : [index].push([arg])
-    pub fn push_method(&mut self, index: VarIndex, arg: String) {
-        let VarIndex { var, index } = index;
+    pub fn push_method(&mut self, index: VarIndexing, arg: String) {
+        let VarIndexing { var, index } = index;
         let arg_value = self.get_value(&arg);
         let index_values: Vec<Value> = index.iter().map(|y| self.get_value(y)).collect();
         let mut value = self.get_ref_mut_value(&var);
@@ -93,13 +97,26 @@ impl Memory {
     }
 
     // Replace operation of this form : [index].replace([arg])
-    pub fn replace_method(&mut self, index: VarIndex, arg: String) {
-        todo!()
+    pub fn replace_method(&mut self, index: VarIndexing, arg: String) -> Value {
+        let VarIndexing { var, index } = index;
+        let arg_value = self.get_value(&arg);
+        let index_values: Vec<Value> = index.iter().map(|y| self.get_value(y)).collect();
+        let mut value = self.get_ref_mut_value(&var);
+        for v in index_values {
+            if let Value::Array(array) = value
+                && let Value::Constant(Constant::Int(i)) = v
+            {
+                value = &mut array[i as usize];
+            } else {
+                unreachable!("Indexing inside a non array OR with not an integer.")
+            }
+        }
+        std::mem::replace(value, arg_value)
     }
 
     // Pop operation of this form : [index].pop()
-    pub fn pop_method(&mut self, index: VarIndex) -> Value {
-        let VarIndex { var, index } = index;
+    pub fn pop_method(&mut self, index: VarIndexing) -> Value {
+        let VarIndexing { var, index } = index;
         let index_var = self.stack.iter().position(|(x, _)| x == &var).unwrap();
         let (x, mut var_value) = std::mem::take(&mut self.stack[index_var]);
         let index_vec: VecDeque<usize> = index
@@ -116,6 +133,10 @@ impl Memory {
         self.stack[index_var] = (x, var_value);
         last_value
     }
+
+    pub(crate) fn len_method(&self, index: VarIndexing) -> usize {
+        todo!()
+    }
 }
 
 impl Display for Memory {
@@ -125,7 +146,7 @@ impl Display for Memory {
             "{}",
             self.stack
                 .iter()
-                .format_with(",", |(x, v), f| f(&format_args!("{x} = {v}")))
+                .format_with("\n", |(x, v), f| f(&format_args!("{x} = {v}")))
         )
     }
 }

@@ -31,7 +31,7 @@ impl<'src> State<'src> {
         Self {
             original_file,
             interpreter: Interpreter::new(ast.clone()),
-            cst: cst,
+            cst,
             ast,
         }
     }
@@ -46,43 +46,13 @@ impl<'src> State<'src> {
                 self.interpreter.next();
             }
             Input::Previous => {
-                todo!()
+                self.interpreter.next_back();
             }
             Input::NotRecognized => {}
         }
     }
 }
 
-// pub struct HeapWidget<'a>(&'a Heap);
-// impl Widget for HeapWidget<'_> {
-//     fn render(self, area: Rect, buf: &mut Buffer)
-//     where
-//         Self: Sized,
-//     {
-//         let heap = self.0;
-//         use Constraint::*;
-//         let nb_row = (area.height / 3) as usize;
-//         let rows = Layout::vertical(vec![Length(2); nb_row]);
-//         let layout = rows.split(area);
-
-//         for (i, region) in heap.data.iter().enumerate() {
-//             let area = layout[i];
-//             let v: Vec<String> = region.iter().map(|v| format!("{v}")).collect();
-//             let s: String = v
-//                 .iter()
-//                 .fold(String::new(), |acc, s| format!("{acc} | {s}"));
-//             Paragraph::new(s)
-//                 .block(Block::bordered().title(format!("{}", i)))
-//                 .render(
-//                     Rect {
-//                         height: area.height + 1,
-//                         ..area
-//                     },
-//                     buf,
-//                 );
-//         }
-//     }
-// }
 impl Widget for &State<'_> {
     fn render(self, area: Rect, buf: &mut Buffer)
     where
@@ -97,21 +67,18 @@ impl Widget for &State<'_> {
         let layout = status_line.split(area);
         let (top, status_line) = (layout[0], layout[1]);
 
-        Paragraph::new(format!(
-            "[q] | [echap] to quit \t [->] to do a step in execution"
-        ))
-        .centered()
-        .render(status_line, buf);
+        Paragraph::new("[q] | [echap] to quit \t [->] to do a step in execution".to_string())
+            .centered()
+            .render(status_line, buf);
 
         let left_right = Layout::horizontal([Fill(1), Fill(1)]);
-        let top_bottom = Layout::vertical([Fill(1), Fill(1)]);
 
         let layout = left_right.split(top);
         let (left, right) = (layout[0], layout[1]);
 
         Paragraph::new(format!(
-            "{}\n\n\n{}\nStep number {}",
-            self.interpreter.current, self.interpreter.continuation, self.interpreter.step
+            "{}\n\n[κ]\n{}\n\n[Step] {}",
+            self.interpreter.state, self.interpreter.continuation, self.interpreter.step
         ))
         // .wrap(Wrap { trim: true })
         .block(Block::bordered())

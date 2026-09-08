@@ -1,4 +1,4 @@
-use crate::{BasicTypes, Binary, Constant, Decl, Expr, Method, Types, Unary, VarIndex};
+use crate::{BasicTypes, Binary, Constant, Decl, Expr, Method, Types, Unary, VarIndexing};
 use cst::{
     CSTBasicTypes, CSTBinary, CSTConstant, CSTDecl, CSTExpr, CSTIndex, CSTMethod, CSTTypes,
     CSTUnary,
@@ -17,7 +17,7 @@ impl<'src> From<&CSTDecl<'src>> for Decl {
         Decl {
             name: name.to_string(),
             args: args
-                .into_iter()
+                .iter()
                 .map(|(var, t)| (var.to_string(), Types::from(t)))
                 .collect(),
             output_type: Types::from(output_type),
@@ -55,21 +55,21 @@ impl From<&CSTBasicTypes> for BasicTypes {
 impl From<&CSTExpr<'_>> for Expr {
     fn from(expr: &CSTExpr<'_>) -> Self {
         match expr {
-            CSTExpr::Block(block) => Expr::Block(block.iter().map(|e| Expr::from(e)).collect()),
-            CSTExpr::Index(cstindex) => Expr::Index(VarIndex::from(cstindex)),
+            CSTExpr::Block(block) => Expr::Block(block.iter().map(Expr::from).collect()),
+            CSTExpr::Index(cstindex) => Expr::Index(VarIndexing::from(cstindex)),
             CSTExpr::MethodCall {
                 index,
                 method,
                 args,
             } => Expr::MethodCall {
-                index: VarIndex::from(index),
+                index: VarIndexing::from(index),
                 method: Method::from(method),
-                args: args.into_iter().map(|span| span.to_string()).collect(),
+                args: args.iter().map(|span| span.to_string()).collect(),
             },
             CSTExpr::FunCall { name, args } => {
                 let mut n = 0;
                 let mut statements: VecDeque<Expr> = args
-                    .into_iter()
+                    .iter()
                     .enumerate()
                     .map(|(i, block)| {
                         n += 1;
@@ -92,28 +92,69 @@ impl From<&CSTExpr<'_>> for Expr {
                 t: Types::UNIT,
                 expr: Box::new(Expr::from(expr.as_ref())),
             },
+            CSTExpr::Assign { var, expr } => Expr::Block(VecDeque::from([
+                Expr::LetBindings {
+                    var: String::from("0_tmp"),
+                    t: Types::UNIT,
+                    expr: Box::new(Expr::from(expr.as_ref())),
+                },
+                Expr::MethodCall {
+                    index: VarIndexing::from(var),
+                    method: Method::Replace,
+                    args: VecDeque::from([String::from("0_tmp")]),
+                },
+            ])),
             CSTExpr::While { cond, block } => Expr::While {
-                cond: cond.to_string(),
-                block: block.into_iter().map(|e| Expr::from(e)).collect(),
+                cond: Box::new(Expr::from(cond.as_ref())),
+                body: block.iter().map(Expr::from).collect(),
             },
             CSTExpr::If { cond, yes, no } => Expr::Block(VecDeque::from([
                 Expr::LetBindings {
-                    var: String::from("tmp"),
+                    var: String::from("0_var"),
                     t: Types::BOOL,
                     expr: Box::new(Expr::from(cond.as_ref())),
                 },
                 Expr::If {
-                    cond: String::from("tmp"),
-                    yes: yes.into_iter().map(|e| Expr::from(e)).collect(),
-                    no: no.into_iter().map(|e| Expr::from(e)).collect(),
+                    cond: String::from("0_var"),
+                    yes: yes.iter().map(Expr::from).collect(),
+                    no: no.iter().map(Expr::from).collect(),
                 },
             ])),
             CSTExpr::Constant(constant) => Expr::Constant(Constant::from(constant)),
-            CSTExpr::BinaryOp { lhs, op, rhs } => Expr::BinaryOp {
-                lhs: lhs.to_string(),
-                op: Binary::from(op),
-                rhs: rhs.to_string(),
-            },
+            CSTExpr::BinaryOp { lhs, op, rhs } => {
+                let mut block = VecDeque::new();
+                let lhs_name = if let CSTExpr::Index(var_index) = lhs.as_ref()
+                    && var_index.index.is_empty()
+                {
+                    var_index.var.clone().to_string()
+                } else {
+                    block.push_back(Expr::LetBindings {
+                        var: String::from("0_var"),
+                        t: Types::UNIT,
+                        expr: Box::new(Expr::from(lhs.as_ref())),
+                    });
+                    String::from("0_var")
+                };
+
+                let rhs_name = if let CSTExpr::Index(var_index) = rhs.as_ref()
+                    && var_index.index.is_empty()
+                {
+                    var_index.var.clone().to_string()
+                } else {
+                    block.push_back(Expr::LetBindings {
+                        var: String::from("1_var"),
+                        t: Types::UNIT,
+                        expr: Box::new(Expr::from(rhs.as_ref())),
+                    });
+                    String::from("1_var")
+                };
+                block.push_back(Expr::BinaryOp {
+                    lhs: lhs_name,
+                    op: Binary::from(op),
+                    rhs: rhs_name,
+                });
+                Expr::Block(block)
+            }
             CSTExpr::UnaryOp { lhs, op } => Expr::UnaryOp {
                 lhs: lhs.to_string(),
                 op: Unary::from(op),
@@ -122,12 +163,12 @@ impl From<&CSTExpr<'_>> for Expr {
         }
     }
 }
-impl From<&CSTIndex<'_>> for VarIndex {
+impl From<&CSTIndex<'_>> for VarIndexing {
     fn from(cst_index: &CSTIndex<'_>) -> Self {
         let CSTIndex { var, index } = cst_index;
-        VarIndex {
+        VarIndexing {
             var: var.to_string(),
-            index: index.into_iter().map(|span| span.to_string()).collect(),
+            index: index.iter().map(|span| span.to_string()).collect(),
         }
     }
 }
@@ -136,9 +177,10 @@ impl From<&CSTBinary> for Binary {
         match cst_binary {
             CSTBinary::Add => Binary::Add,
             CSTBinary::Sub => Binary::Sub,
+            CSTBinary::Mult => Binary::Mult,
             CSTBinary::Div => Binary::Div,
-            CSTBinary::Equal => Binary::Equal,
-            CSTBinary::NotEqual => Binary::NotEqual,
+            CSTBinary::EqEq => Binary::Equal,
+            CSTBinary::Neq => Binary::NotEqual,
         }
     }
 }
@@ -148,6 +190,7 @@ impl From<&CSTMethod> for Method {
             CSTMethod::Replace => Self::Replace,
             CSTMethod::Push => Self::Push,
             CSTMethod::Pop => Self::Pop,
+            CSTMethod::Len => Self::Len,
         }
     }
 }
@@ -165,6 +208,7 @@ impl From<&CSTConstant> for Constant {
             CSTConstant::Int(i) => Constant::Int(*i),
             CSTConstant::String(s) => todo!(),
             CSTConstant::Float(_) => todo!(),
+            CSTConstant::Bool(b) => Constant::Bool(*b),
         }
     }
 }

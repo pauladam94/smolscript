@@ -116,7 +116,7 @@ impl<'src> Parser<Lexer<'src, Token>> for &str {
                 if &input.slice() == self {
                     Ok(input.pos())
                 } else {
-                    Err(ParseError::new().with_error(format!(
+                    Err(ParseError::default().with_error(format!(
                         "Expected the &str '{}' but got '{}'",
                         self,
                         input.slice()
@@ -125,7 +125,7 @@ impl<'src> Parser<Lexer<'src, Token>> for &str {
             }
             Some(Err(())) | None => {
                 *input = past_input;
-                Err(ParseError::new().with_error(format!(
+                Err(ParseError::default().with_error(format!(
                     "Expected the &str '{}' but got no more tokens in stream",
                     self
                 )))

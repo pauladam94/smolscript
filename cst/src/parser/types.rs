@@ -13,7 +13,7 @@ pub fn types_parser<'src>(input: &mut Lexer<'src, Token>) -> Result<CSTTypes, Pa
         "u16".map(|_| CSTTypes::U16),
         "u8".map(|_| CSTTypes::U8),
         "bool".map(|_| CSTTypes::BOOL),
-        "()".map(|_| CSTTypes::UNIT),
+        ("(", ")").map(|_| CSTTypes::UNIT),
         ("[", cut((types_parser, "]"))).map(|(_, (mut t, _))| {
             t.array_depth += 1;
             t

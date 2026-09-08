@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Default)]
 pub struct ParseError {
     errors: Vec<String>,
     kind: ParseErrorKind,
@@ -20,9 +20,6 @@ impl ParseError {
         errors: vec![],
         kind: ParseErrorKind::Error,
     };
-    pub const fn new() -> Self {
-        Self::EMPTY
-    }
     pub fn with_error(mut self, s: String) -> Self {
         self.errors.push(s);
         self
@@ -36,10 +33,11 @@ impl ParseError {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub enum ParseErrorKind {
     Incomplete,
     Complete,
+    #[default]
     Error,
     Unknown,
     Unrecoverable,

@@ -120,7 +120,7 @@ impl<'src> CurrentLexerPos for Lexer<'src, Token> {
 impl Display for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Token::NewLine => write!(f, "\n"),
+            Token::NewLine => writeln!(f),
             Token::MultiLineComments => write!(f, "/*"),
             Token::EndMultiLineComments => write!(f, "*/"),
             Token::SingleLineComments => write!(f, "//"),
@@ -174,16 +174,10 @@ fn skip_multiline_comments(lexer: &mut Lexer<Token>) -> Skip {
 }
 fn skip_line_comments(input: &mut Lexer<Token>) -> Skip {
     input.extras.seen_new_line = false;
-    // println!("- Inside skip line comments");
-
     loop {
         let past_input = input.clone();
         match input.next() {
-            Some(Ok(t)) => {
-                // println!(
-                //     "Seen this token '{t}' | new_line : {}",
-                //     input.extras.seen_new_line
-                // );
+            Some(Ok(_)) => {
                 if input.extras.seen_new_line {
                     *input = past_input;
                     return Skip;
@@ -193,5 +187,3 @@ fn skip_line_comments(input: &mut Lexer<Token>) -> Skip {
         }
     }
 }
-
-

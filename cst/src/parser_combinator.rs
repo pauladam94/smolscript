@@ -32,7 +32,7 @@ pub mod alt;
 /// because we don't care here about this information.
 pub mod seq;
 
-///
+/// todo
 pub mod cut;
 
 /// Optional use of a parser.

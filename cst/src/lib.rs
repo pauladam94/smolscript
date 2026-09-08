@@ -33,10 +33,13 @@ pub fn cst_parser<'src>(input: &'src str) -> Result<CST<'src>, ParseError> {
     let ast = complete_parser.parse(&mut lexer);
     match ast {
         Ok(o) => match lexer.next() {
-            Some(Ok(_)) => Err(ParseError::new()
-                .with_error(format!("Result of parsing is :\n{}\n", o))
+            Some(Ok(_)) => Err(ParseError::default()
+                .with_error(format!(
+                    "Result of parsing is :\n{}\nDebug result: \n{:#?}",
+                    o, o
+                ))
                 .with_error(annotate(input, lexer, "There is some token left."))),
-            Some(Err(())) => Err(ParseError::new().with_error(annotate(
+            Some(Err(())) => Err(ParseError::default().with_error(annotate(
                 input,
                 lexer,
                 "Error in the lexer. More text but no more token.",
@@ -47,21 +50,23 @@ pub fn cst_parser<'src>(input: &'src str) -> Result<CST<'src>, ParseError> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum CSTUnary {
     Not,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum CSTBinary {
     Add,
     Sub,
     Div,
-    Equal,
-    NotEqual,
+    Mult,
+    EqEq,
+    Neq,
 }
 
 /// Complete AST of a program
+#[derive(Debug)]
 pub struct CST<'src> {
     pub top_level: VecDeque<CSTDecl<'src>>,
     pub expr: CSTExpr<'src>,
@@ -98,14 +103,19 @@ pub enum CSTExpr<'src> {
         name: Span<'src>,
         args: VecDeque<CSTExpr<'src>>,
     },
-    /// let [var] = [block]
+    /// let [var] = [expr]
     LetBindings {
         var: Span<'src>,
         expr: Box<CSTExpr<'src>>,
     },
+    /// [var] := [expr]
+    Assign {
+        var: CSTIndex<'src>,
+        expr: Box<CSTExpr<'src>>,
+    },
     /// while ([cond]) { [block] }
     While {
-        cond: Span<'src>,
+        cond: Box<CSTExpr<'src>>,
         block: VecDeque<CSTExpr<'src>>,
     },
     /// if ([cond]) { [yes] } else { [no] }
@@ -118,9 +128,9 @@ pub enum CSTExpr<'src> {
     Constant(CSTConstant),
     /// [lhs] [op] [rhs]
     BinaryOp {
-        lhs: Span<'src>,
+        lhs: Box<CSTExpr<'src>>,
         op: CSTBinary,
-        rhs: Span<'src>,
+        rhs: Box<CSTExpr<'src>>,
     },
     /// [lhs] [op] [rhs]
     UnaryOp {
@@ -143,11 +153,13 @@ pub enum CSTConstant {
     #[default]
     Unit,
     /// Integers
-    Int(u16),
+    Int(u64),
     /// Float
     Float(f32),
     /// Strings
     String(String),
+    /// Booleans
+    Bool(bool),
 }
 
 #[derive(Debug)]
@@ -155,6 +167,7 @@ pub enum CSTMethod {
     Replace,
     Push,
     Pop,
+    Len,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
