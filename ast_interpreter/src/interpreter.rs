@@ -193,16 +193,12 @@ impl Iterator for Interpreter {
                 }
                 _ => {
                     match block.pop_front().unwrap() {
-                        Expr::LetBindings {
-                            var,
-                            expr: block_let,
-                            t,
-                        } => {
+                        Expr::LetBindings { var, expr, t } => {
                             continuation.stack.push(Continuation::LetCont {
                                 var,
                                 block: std::mem::take(block),
                             });
-                            *state = State::Block(VecDeque::from([*block_let.clone()]));
+                            *state = State::Block(VecDeque::from([*expr.clone()]));
                         }
                         Expr::While { cond, body } => {
                             let new_state = cond.clone();
@@ -230,10 +226,10 @@ impl Iterator for Interpreter {
                 } else {
                     let cont = continuation.pop().unwrap();
                     match cont {
-                        Continuation::LetCont { var, block } => {
+                        Continuation::LetCont { var, block: expr } => {
                             memory.bind_var(var, std::mem::take(value));
                             continuation.stack.push(Continuation::DropCont(var));
-                            *state = State::Block(block);
+                            *state = State::Block(expr);
                         }
                         Continuation::BlockCont(block) => {
                             assert_eq!(

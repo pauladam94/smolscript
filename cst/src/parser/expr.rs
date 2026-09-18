@@ -5,6 +5,7 @@ use crate::{
         Parser,
         block::block_parser,
         error::ParseError,
+        if_else::if_else_parser,
         index::index_parser,
         literal::literal_parser,
         method::method_parser,
@@ -12,12 +13,11 @@ use crate::{
     },
     parser_combinator::{alt::alt, cut::cut, opt::opt, repeat::repeat},
 };
+use colored::Colorize;
 use logos::Lexer;
 
 pub fn expr_parser<'src>(input: &mut Lexer<'src, Token>) -> Result<CSTExpr<'src>, ParseError> {
     let lhs = primary_expr_parser(input)?;
-    // // todo remove
-    // println!("\n---\n{}lhs is = {lhs}", "[IN:expr_parser]".purple());
     op_parser_rec(input, lhs, 0)
 }
 
@@ -25,6 +25,7 @@ pub fn primary_expr_parser<'src>(
     input: &mut Lexer<'src, Token>,
 ) -> Result<CSTExpr<'src>, ParseError> {
     alt((
+        ("(", expr_parser, ")").map(|(_, expr, _)| expr),
         ("[", cut("]")).map(|_| CSTExpr::EmptyVec),
         literal_parser().map(CSTExpr::Constant),
         ("let", cut((Token::Identifier, "=", expr_parser))).map(|(_, (var, _, expr))| {
@@ -46,27 +47,7 @@ pub fn primary_expr_parser<'src>(
                 block,
             })
             .context("While parsing a 'while' expression".to_string()),
-        (
-            "if",
-            cut((
-                "(",
-                expr_parser,
-                ")",
-                "{",
-                block_parser,
-                "}",
-                "else",
-                "{",
-                block_parser,
-                "}",
-            )),
-        )
-            .map(|(_, (_, cond, _, _, yes, _, _, _, no, _))| CSTExpr::If {
-                cond: Box::new(cond),
-                yes,
-                no,
-            })
-            .context("While parsing an 'if' expression".to_string()),
+        if_else_parser.context("While parsing an 'if' expression".to_string()),
         (
             Token::Identifier,
             "(",
@@ -90,7 +71,9 @@ pub fn primary_expr_parser<'src>(
                 args,
             })
             .context("While parsing a method call".to_string()),
-        index_parser.map(CSTExpr::Index),
+        index_parser
+            .context("While parsing a variable or indexing".to_string())
+            .map(CSTExpr::Index),
     ))
     .context("While parsing an expression".to_string())
     .parse(input)
@@ -103,32 +86,23 @@ pub fn op_parser_rec<'src>(
     mut lhs: CSTExpr<'src>,
     min_precedence: usize,
 ) -> Result<CSTExpr<'src>, ParseError> {
-    let mut lookahead = if let Ok(lookahead) = binary_parser(input) {
+    let mut lookahead = if let Ok(lookahead) = binary_parser(&mut input.clone()) {
         lookahead
     } else {
         return Ok(lhs);
     };
 
-    // // todo remove
-    // println!(
-    //     "{} lookahead = '{lookahead}'",
-    //     "[IN:op_parser_rec]".purple()
-    // );
-    // dbg!();
-
     while lookahead.precedence() >= min_precedence {
-        let op = lookahead;
+        let op = binary_parser(input).unwrap();
         let mut rhs = if let Ok(rhs) = primary_expr_parser(input) {
             rhs
         } else {
-            return Ok(lhs);
+            todo!()
+            // -> fail gracefully
+            // return Ok(lhs);
         };
 
-        // // todo remove
-        // println!("{} rhs = '{rhs}'", "[IN:op_parser_rec]".purple());
-        // dbg!();
-
-        lookahead = if let Ok(lookahead) = binary_parser(input) {
+        lookahead = if let Ok(lookahead) = binary_parser(&mut input.clone()) {
             lookahead
         } else {
             return Ok(CSTExpr::BinaryOp {
@@ -138,15 +112,9 @@ pub fn op_parser_rec<'src>(
             });
         };
 
-        // // todo remove
-        // println!(
-        //     "{} lookahead = '{lookahead}'",
-        //     "[IN:op_parser_rec]".purple()
-        // );
-        // dbg!();
-
-        while lookahead.precedence() >= op.precedence()
-            || lookahead.associativity() == Associativity::RightToLeft
+        while lookahead.precedence() > op.precedence()
+            || (lookahead.precedence() == op.precedence()
+                && lookahead.associativity() == Associativity::RightToLeft)
         {
             rhs = op_parser_rec(
                 input,
@@ -158,10 +126,14 @@ pub fn op_parser_rec<'src>(
                         0
                     }),
             )?;
-            lookahead = if let Ok(lookahead) = binary_parser(input) {
+            lookahead = if let Ok(lookahead) = binary_parser(&mut input.clone()) {
                 lookahead
             } else {
-                return Ok(lhs);
+                return Ok(CSTExpr::BinaryOp {
+                    lhs: Box::new(lhs),
+                    op,
+                    rhs: Box::new(rhs),
+                });
             };
         }
         lhs = CSTExpr::BinaryOp {
@@ -178,17 +150,17 @@ parse_expression()
     return parse_expression_1(parse_primary(), 0)
 
 parse_expression_1(lhs, min_precedence)
-    lookahead := peek next token
-    while lookahead is a binary operator whose precedence is >= min_precedence
+    lookahead := peek_next_token()
+    while lookahead precedence is >= min_precedence
         op := lookahead
         advance to next token
         rhs := parse_primary ()
-        lookahead := peek next token
+        lookahead := peek_next_token()
         while lookahead is a binary operator whose precedence is greater
                  than op's, or a right-associative operator
                  whose precedence is equal to op's
             rhs := parse_expression_1 (rhs, precedence of op + (1 if lookahead precedence is greater, else 0))
             lookahead := peek next token
-        lhs := the result of applying op with operands lhs and rhs
+        lhs := (lhs op rhs)
     return lhs
 */

@@ -1,0 +1,9 @@
+let x = false;
+let y = 2 < 3;
+if (x) {
+    3
+} else if (y) {
+    4
+} else {
+    5
+}

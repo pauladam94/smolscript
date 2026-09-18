@@ -120,6 +120,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "ast_to_c"
+version = "0.1.0"
+dependencies = [
+ "ast",
+]
+
+[[package]]
 name = "atomic"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

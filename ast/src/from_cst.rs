@@ -10,12 +10,12 @@ use std::collections::{HashMap, VecDeque};
 #[derive(Debug, Default)]
 pub(crate) struct CSTConverter {
     index: usize,
-    var_table: HashMap<String, usize>,
+    var_table: HashMap<String, Identifier>,
 }
 impl CSTConverter {
     pub fn fresh_var(&mut self) -> Identifier {
         self.index += 1;
-        self.index
+        Identifier(self.index)
     }
 }
 
@@ -54,7 +54,7 @@ impl CSTConverter {
             },
             CSTExpr::FunCall { name, args } => {
                 let mut n = 0;
-                let fresh_vars: VecDeque<usize> =
+                let fresh_vars: VecDeque<Identifier> =
                     (0..args.len()).map(|_| self.fresh_var()).collect();
                 let mut statements: VecDeque<Expr> = args
                     .iter()
@@ -130,7 +130,7 @@ impl CSTConverter {
     }
 
     /// Builds an identifier to replace a block of [Expr]
-    fn ident_from_block(&mut self, lhs: &CSTExpr<'_>, block: &mut VecDeque<Expr>) -> usize {
+    fn ident_from_block(&mut self, lhs: &CSTExpr<'_>, block: &mut VecDeque<Expr>) -> Identifier {
         if let CSTExpr::Index(var_index) = lhs
             && var_index.index.is_empty()
         {

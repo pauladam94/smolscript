@@ -1,5 +1,5 @@
 {
     "parse": "Pass",
     "check": "Pass",
-    "output": "let x = false; x"
+    "output": "false"
 }

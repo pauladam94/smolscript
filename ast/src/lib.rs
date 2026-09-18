@@ -9,7 +9,9 @@ use std::collections::VecDeque;
 ///
 /// The main constrains we have is, if two [Span] are equal (not in position but
 /// their underlying string) then their identifier is the same.
-pub type Identifier = usize;
+// pub type Identifier = usize;
+#[derive(Debug, Default, PartialEq, Eq, Clone, Copy)]
+pub struct Identifier(usize);
 
 /// Main function of this crate.
 ///

@@ -1,4 +1,6 @@
-use crate::{AST, BasicTypes, Binary, Constant, Decl, Expr, Method, Types, Unary, VarIndexing};
+use crate::{
+    AST, BasicTypes, Binary, Constant, Decl, Expr, Identifier, Method, Types, Unary, VarIndexing,
+};
 use itertools::Itertools;
 use std::fmt::{Display, Formatter, Result, Write};
 
@@ -11,7 +13,7 @@ impl Write for Pad<'_, '_> {
         for s in s.split_inclusive('\n') {
             self.f.write_str(s)?;
             if s.ends_with('\n') {
-                self.f.write_str("\t")?;
+                self.f.write_str("    ")?;
             }
         }
         Ok(())
@@ -31,11 +33,11 @@ impl Display for Decl {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         write!(
             f,
-            "fn f{}({}) -> {} {{",
+            "fn {}({}) -> {} {{",
             self.name,
             self.args
                 .iter()
-                .format_with(", ", |(x, t), f| f(&format_args!("x{x} : {t}"))),
+                .format_with(", ", |(x, t), f| f(&format_args!("{x} : {t}"))),
             self.output_type
         )?;
         write!(Pad { f }, "\n{}", self.expr)?;
@@ -79,10 +81,10 @@ impl Display for Expr {
                 args,
             } => write!(f, "{index}.{method}({})", args.iter().format(", ")),
             Expr::FunCall { name, args } => {
-                write!(f, "f{name}({})", args.iter().format(", "))
+                write!(f, "{name}({})", args.iter().format(", "))
             }
             Expr::LetBindings { var, t, expr } => {
-                write!(f, "let x{var} : {t} = ")?;
+                write!(f, "let {var} : {t} = ")?;
                 write!(Pad { f }, "{expr}")
             }
             Expr::While { cond, body: block } => {
@@ -91,14 +93,14 @@ impl Display for Expr {
                 write!(f, "\n}}")
             }
             Expr::If { cond, yes, no } => {
-                write!(f, "if x{cond} {{")?;
+                write!(f, "if {cond} {{")?;
                 write!(Pad { f }, "\n{}", yes.iter().format(";\n"))?;
                 write!(f, "\n}} else {{")?;
                 write!(Pad { f }, "\n{}", no.iter().format(";\n"))?;
                 write!(f, "\n}}")
             }
-            Expr::BinaryOp { lhs, op, rhs } => write!(f, "x{lhs} {op} x{rhs}"),
-            Expr::UnaryOp { lhs, op } => write!(f, "{op} x{lhs}"),
+            Expr::BinaryOp { lhs, op, rhs } => write!(f, "{lhs} {op} {rhs}"),
+            Expr::UnaryOp { lhs, op } => write!(f, "{op} {lhs}"),
             Expr::Constant(constant) => write!(f, "{constant}"),
             Expr::EmptyVec => write!(f, "[]"),
             Expr::Block(block) => write!(f, "{}", block.iter().format(";\n")),
@@ -108,9 +110,9 @@ impl Display for Expr {
 
 impl Display for VarIndexing {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        write!(f, "x{}", self.var)?;
+        write!(f, "{}", self.var)?;
         for var in &self.index {
-            write!(f, "[x{var}]")?;
+            write!(f, "[{var}]")?;
         }
         Ok(())
     }
@@ -153,5 +155,11 @@ impl Display for Constant {
             Constant::Bool(b) => write!(f, "{b}"),
             Constant::Unit => write!(f, "()"),
         }
+    }
+}
+
+impl Display for Identifier {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        write!(f, "x{}", self.0)
     }
 }

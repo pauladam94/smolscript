@@ -162,7 +162,7 @@ impl Display for Memory {
             "{}",
             self.stack
                 .iter()
-                .format_with("\n", |(x, v), f| f(&format_args!("x{x} = {v}")))
+                .format_with("\n", |(x, v), f| f(&format_args!("{x} = {v}")))
         )
     }
 }

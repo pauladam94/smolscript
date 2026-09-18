@@ -93,8 +93,8 @@ impl Display for CSTExpr<'_> {
                 write!(f, "\n}}")
             }
             Constant(constant) => write!(f, "{constant}"),
-            BinaryOp { lhs, op, rhs } => write!(f, "{lhs} {op} {rhs}"),
-            UnaryOp { lhs, op } => write!(f, "{lhs} {op}"),
+            BinaryOp { lhs, op, rhs } => write!(f, "({lhs} {op} {rhs})"),
+            UnaryOp { lhs, op } => write!(f, "({lhs} {op})"),
             EmptyVec => write!(f, "[]"),
         }
     }

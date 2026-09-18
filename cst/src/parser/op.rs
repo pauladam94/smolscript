@@ -16,12 +16,12 @@ impl CSTBinary {
     /// [here](https://fr.cppreference.com/c/language/operator_precedence)
     pub const fn precedence(&self) -> usize {
         match self {
-            CSTBinary::Add => 4,
-            CSTBinary::Sub => 4,
+            CSTBinary::Add => 2,
+            CSTBinary::Sub => 2,
             CSTBinary::Div => 3,
             CSTBinary::Mult => 3,
-            CSTBinary::EqEq => 7,
-            CSTBinary::Neq => 7,
+            CSTBinary::EqEq => 1,
+            CSTBinary::Neq => 1,
         }
     }
     /// Associativity of binary operators following the C standard describe

@@ -49,6 +49,14 @@ pub enum Token {
     Bool,
 
     // SYMBOLS
+    #[token("<")]
+    LessThan,
+    #[token(">")]
+    MoreThan,
+    #[token(">=")]
+    MoreThanEqual,
+    #[token("<=")]
+    LessThanEqual,
     #[token("!=")]
     Neq,
     #[token("==")]
@@ -135,6 +143,10 @@ impl Display for Token {
             Token::Float => write!(f, "float"),
             Token::Char => write!(f, "char"),
             Token::Bool => write!(f, "bool"),
+            Token::LessThan => write!(f, "<"),
+            Token::MoreThan => write!(f, ">"),
+            Token::MoreThanEqual => write!(f, ">="),
+            Token::LessThanEqual => write!(f, "<="),
             Token::Neq => write!(f, "!="),
             Token::EqEq => write!(f, "=="),
             Token::Eq => write!(f, "="),
@@ -156,7 +168,7 @@ impl Display for Token {
             Token::Div => write!(f, "/"),
             Token::Number => write!(f, "number"),
             Token::Identifier => write!(f, "identifier"),
-        }
+                    }
     }
 }
 

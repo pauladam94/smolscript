@@ -1,0 +1,16 @@
+
+fn fibo(n : u64) -> u64 {
+    let acc = [];
+	let u0 = 1;
+	let u1 = 1;
+	while (n != 0) {
+        acc.push(u0);
+		let tmp = u1;
+		u1 := u0 + u1;
+		u0 := tmp;
+		n := n - 1;
+	};
+	u0
+}
+
+fibo(25)

@@ -3,7 +3,14 @@ use ast_interpreter::interpreter::Interpreter;
 use colored::Colorize;
 use cst::cst_parser;
 use serde_derive::{Deserialize, Serialize};
+use std::process::{Command, Output};
 use test_each_file::test_each_file;
+
+#[test]
+fn r#arith(){
+    (full_test)([include_str!("/home/pauladam/github/smolscript/examples/arith_0.smol"),include_str!("/home/pauladam/github/smolscript/examples/arith_0.json"),])
+}
+
 
 test_each_file! { for ["smol", "json"] in "./examples" => full_test }
 
@@ -22,7 +29,7 @@ struct TestInfo {
 
 fn full_test([file, json_file]: [&str; 2]) {
     use TestType::*;
-    let test_info: TestInfo = serde_json::from_str(json_file).unwrap();
+    let test_info: TestInfo = serde_json::from_str(json_file).expect("");
 
     println!("{} :\n{}", "[ORIGINAL FILE]".purple(), file);
     // Parsing of the original file
@@ -96,7 +103,7 @@ fn full_test([file, json_file]: [&str; 2]) {
     let mut interpreter = Interpreter::new(cst_to_ast(&cst));
     while let Some(_) = interpreter.next() {}
     let value = interpreter.get_value().unwrap_or_else(|| {
-        panic!("The execution stopped but it crashed. It didn't end with a value")
+        panic!("The execution stopped but it crashed. It didn't end with a value.")
     });
 
     assert_eq!(
@@ -107,4 +114,18 @@ fn full_test([file, json_file]: [&str; 2]) {
         expected_value,
         value
     );
+
+    // Compiling to C and comparing output
+    
+}
+
+
+fn compile_to_c_and_test_output() {
+    let s: Output = Command::new("gcc")
+        .args(["/C", "echo hello"])
+        .output()
+        .expect("failed to compile file");
+    let stderr: String = str::from_utf8(&s.stderr)
+        .expect("Not a valid UTF8 sequence.")
+        .to_owned();
 }
