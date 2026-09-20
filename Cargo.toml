@@ -1,6 +1,7 @@
 [workspace]
 resolver = "3"
 members = [
+    "utils",             # Utils usefull for the whole compiler
     "cst",               # Concrete Syntax Tree
     "checker",           # Type check of CST
     "ast",               # Abstract Syntax Tree (from CST + Typecheck)

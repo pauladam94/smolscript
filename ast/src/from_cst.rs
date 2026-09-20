@@ -8,19 +8,19 @@ use cst::{
 use std::collections::{HashMap, VecDeque};
 
 #[derive(Debug, Default)]
-pub(crate) struct CSTConverter {
+pub(crate) struct CSTConverter<'src> {
     index: usize,
-    var_table: HashMap<String, Identifier>,
+    var_table: HashMap<&'src str, Identifier>,
 }
-impl CSTConverter {
+impl CSTConverter<'_> {
     pub fn fresh_var(&mut self) -> Identifier {
         self.index += 1;
         Identifier(self.index)
     }
 }
 
-impl CSTConverter {
-    pub(crate) fn convert_decl(&mut self, cst_decl: &CSTDecl<'_>) -> Decl {
+impl<'src> CSTConverter<'src> {
+    pub(crate) fn convert_decl(&mut self, cst_decl: &CSTDecl<'src>) -> Decl {
         let CSTDecl {
             name,
             args,
@@ -37,7 +37,7 @@ impl CSTConverter {
             expr: self.convert_expr(expr),
         }
     }
-    pub(crate) fn convert_expr(&mut self, expr: &CSTExpr<'_>) -> Expr {
+    pub(crate) fn convert_expr(&mut self, expr: &CSTExpr<'src>) -> Expr {
         match expr {
             CSTExpr::Block(block) => {
                 Expr::Block(block.iter().map(|e| self.convert_expr(e)).collect())
@@ -130,7 +130,7 @@ impl CSTConverter {
     }
 
     /// Builds an identifier to replace a block of [Expr]
-    fn ident_from_block(&mut self, lhs: &CSTExpr<'_>, block: &mut VecDeque<Expr>) -> Identifier {
+    fn ident_from_block(&mut self, lhs: &CSTExpr<'src>, block: &mut VecDeque<Expr>) -> Identifier {
         if let CSTExpr::Index(var_index) = lhs
             && var_index.index.is_empty()
         {
@@ -146,7 +146,7 @@ impl CSTConverter {
         }
     }
 
-    fn convert_var_indexing(&mut self, cst_index: &CSTIndex<'_>) -> VarIndexing {
+    fn convert_var_indexing(&mut self, cst_index: &CSTIndex<'src>) -> VarIndexing {
         let CSTIndex { var, index } = cst_index;
         VarIndexing {
             var: self.convert_span(var),
@@ -154,12 +154,12 @@ impl CSTConverter {
         }
     }
 
-    fn convert_span(&mut self, span: &Span<'_>) -> Identifier {
+    fn convert_span(&mut self, span: &Span<'src>) -> Identifier {
         match self.var_table.get(span.ident) {
             Some(ident) => *ident,
             None => {
                 let fresh = self.fresh_var();
-                self.var_table.insert(span.to_string(), fresh);
+                self.var_table.insert(span.ident, fresh);
                 fresh
             }
         }

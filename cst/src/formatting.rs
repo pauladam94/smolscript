@@ -3,23 +3,8 @@ use crate::{
     CSTUnary,
 };
 use itertools::Itertools;
+use utils::pad::Pad;
 use std::fmt::{Display, Formatter, Result, Write};
-
-struct Pad<'a, 'b> {
-    f: &'a mut Formatter<'b>,
-}
-
-impl Write for Pad<'_, '_> {
-    fn write_str(&mut self, s: &str) -> Result {
-        for s in s.split_inclusive('\n') {
-            self.f.write_str(s)?;
-            if s.ends_with('\n') {
-                self.f.write_str("\t")?;
-            }
-        }
-        Ok(())
-    }
-}
 
 impl Display for CSTUnary {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {

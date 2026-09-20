@@ -2,23 +2,8 @@ use crate::{
     AST, BasicTypes, Binary, Constant, Decl, Expr, Identifier, Method, Types, Unary, VarIndexing,
 };
 use itertools::Itertools;
+use utils::pad::Pad;
 use std::fmt::{Display, Formatter, Result, Write};
-
-struct Pad<'a, 'b> {
-    f: &'a mut Formatter<'b>,
-}
-
-impl Write for Pad<'_, '_> {
-    fn write_str(&mut self, s: &str) -> Result {
-        for s in s.split_inclusive('\n') {
-            self.f.write_str(s)?;
-            if s.ends_with('\n') {
-                self.f.write_str("    ")?;
-            }
-        }
-        Ok(())
-    }
-}
 
 impl Display for AST {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {

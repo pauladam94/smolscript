@@ -1,3 +1,7 @@
+// #![no_std]
+// extern crate alloc;
+// use alloc::{collections::vec_deque::VecDeque, format};
+
 use crate::{
     lexer::Token,
     parser::{
@@ -30,6 +34,8 @@ pub mod parser_combinator;
 /// the [ParseError] type that can be displayed.
 pub fn cst_parser<'src>(input: &'src str) -> Result<CST<'src>, ParseError> {
     let mut lexer = Token::lexer(input);
+    // lexer.peekable()
+    // lexer.spanned()
     let ast = complete_parser.parse(&mut lexer);
     match ast {
         Ok(o) => match lexer.next() {
