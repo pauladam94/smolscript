@@ -1,6 +1,5 @@
-// #![no_std]
-// extern crate alloc;
-// use alloc::{collections::vec_deque::VecDeque, format};
+#![no_std]
+extern crate alloc;
 
 use crate::{
     lexer::Token,
@@ -8,8 +7,8 @@ use crate::{
         Parser, annotate::annotate, complete::complete_parser, error::ParseError, span::Span,
     },
 };
+use alloc::{boxed::Box, collections::vec_deque::VecDeque, format, string::String};
 use logos::Logos;
-use std::collections::VecDeque;
 
 /// Here we implement the [Display] trait for the whole [CST].
 ///

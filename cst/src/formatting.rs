@@ -4,7 +4,7 @@ use crate::{
 };
 use itertools::Itertools;
 use utils::pad::Pad;
-use std::fmt::{Display, Formatter, Result, Write};
+use alloc::fmt::{Display, Formatter, Result, Write};
 
 impl Display for CSTUnary {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {

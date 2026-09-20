@@ -4,8 +4,8 @@ use crate::{
     parser::{Parser, block::block_parser, error::ParseError, expr::expr_parser},
     parser_combinator::{alt::alt, cut::cut, opt::opt},
 };
+use alloc::{boxed::Box, collections::vec_deque::VecDeque};
 use logos::Lexer;
-use std::collections::VecDeque;
 
 pub fn if_else_parser<'src>(input: &mut Lexer<'src, Token>) -> Result<CSTExpr<'src>, ParseError> {
     (

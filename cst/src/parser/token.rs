@@ -2,6 +2,7 @@ use crate::{
     lexer::{CurrentLexerPos, Token},
     parser::{Parser, error::ParseError, span::Span},
 };
+use alloc::format;
 use logos::Lexer;
 
 /// A given [Token] implements the [Parser] trait.

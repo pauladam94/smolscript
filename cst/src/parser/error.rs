@@ -1,4 +1,6 @@
-use std::fmt::Display;
+use alloc::{
+    fmt::{Display, Formatter, Result}, string::String, vec::Vec,
+};
 
 #[derive(Debug, Clone, Default)]
 pub struct ParseError {
@@ -7,7 +9,7 @@ pub struct ParseError {
 }
 
 impl Display for ParseError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         for err in &self.errors {
             writeln!(f, "> {err}")?;
         }
@@ -17,7 +19,7 @@ impl Display for ParseError {
 
 impl ParseError {
     pub const EMPTY: Self = ParseError {
-        errors: vec![],
+        errors: Vec::new(),
         kind: ParseErrorKind::Error,
     };
     pub fn with_error(mut self, s: String) -> Self {
@@ -44,7 +46,7 @@ pub enum ParseErrorKind {
 }
 
 impl Display for ParseErrorKind {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
             ParseErrorKind::Incomplete => write!(f, "incomplete"),
             ParseErrorKind::Complete => write!(f, "complete"),

@@ -1,8 +1,6 @@
-use crate::parser::Parser;
-use std::{
-    collections::VecDeque,
-    ops::{Bound, RangeBounds},
-};
+use crate::parser::{Parser, error::ParseError};
+use alloc::{collections::vec_deque::VecDeque, fmt::Debug, format};
+use core::ops::{Bound, RangeBounds};
 
 /// Many Parser
 ///
@@ -10,7 +8,7 @@ use std::{
 pub fn repeat<I, R, P, O>(range: R, parser: P) -> impl Parser<I, Output = VecDeque<O>>
 where
     I: Clone,
-    R: RangeBounds<u16> + std::fmt::Debug,
+    R: RangeBounds<u16> + Debug,
     P: Parser<I, Output = O>,
 {
     Repeat { range, parser }
@@ -24,12 +22,12 @@ struct Repeat<R, P> {
 impl<I, R, P, O> Parser<I> for Repeat<R, P>
 where
     I: Clone,
-    R: RangeBounds<u16> + std::fmt::Debug,
+    R: RangeBounds<u16> + Debug,
     P: Parser<I, Output = O>,
 {
     type Output = VecDeque<O>;
 
-    fn parse(&mut self, input: &mut I) -> Result<Self::Output, crate::parser::error::ParseError> {
+    fn parse(&mut self, input: &mut I) -> Result<Self::Output, ParseError> {
         let mut res: VecDeque<O> = VecDeque::new();
         let mut i: u16 = 0;
         loop {

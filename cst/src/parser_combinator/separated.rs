@@ -2,7 +2,8 @@ use crate::{
     parser::Parser,
     parser_combinator::{opt::opt, repeat::repeat},
 };
-use std::{collections::VecDeque, ops::RangeBounds};
+use alloc::{collections::vec_deque::VecDeque, fmt::Debug};
+use core::ops::RangeBounds;
 
 pub fn separated<I, O1, O2, R, P, S>(
     range: R,
@@ -12,10 +13,10 @@ pub fn separated<I, O1, O2, R, P, S>(
 where
     P: Parser<I, Output = O1> + Clone,
     S: Parser<I, Output = O2>,
-    O1: std::fmt::Debug,
-    O2: std::fmt::Debug,
+    O1: Debug,
+    O2: Debug,
     I: Clone,
-    R: RangeBounds<u16> + std::fmt::Debug,
+    R: RangeBounds<u16> + Debug,
 {
     (
         repeat(range, (parser.clone(), sep).map(|(s, _)| s)),

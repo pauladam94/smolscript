@@ -1,9 +1,8 @@
 pub mod pos;
 
-use logos::{Lexer, Logos, Skip};
-use std::fmt::Display;
-
 use crate::lexer::pos::Pos;
+use alloc::fmt::{Display, Formatter, Result};
+use logos::{Lexer, Logos, Skip};
 
 #[derive(Default, Clone)]
 pub struct LexerState {
@@ -126,7 +125,7 @@ impl<'src> CurrentLexerPos for Lexer<'src, Token> {
 }
 
 impl Display for Token {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
             Token::NewLine => writeln!(f),
             Token::MultiLineComments => write!(f, "/*"),
@@ -168,7 +167,7 @@ impl Display for Token {
             Token::Div => write!(f, "/"),
             Token::Number => write!(f, "number"),
             Token::Identifier => write!(f, "identifier"),
-                    }
+        }
     }
 }
 

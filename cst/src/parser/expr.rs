@@ -13,6 +13,7 @@ use crate::{
     },
     parser_combinator::{alt::alt, cut::cut, opt::opt, repeat::repeat},
 };
+use alloc::{boxed::Box, string::ToString};
 use colored::Colorize;
 use logos::Lexer;
 

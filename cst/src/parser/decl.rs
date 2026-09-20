@@ -6,8 +6,8 @@ use crate::{
     },
     parser_combinator::{cut::cut, opt::opt, repeat::repeat},
 };
+use alloc::collections::vec_deque::VecDeque;
 use logos::Lexer;
-use std::collections::VecDeque;
 
 pub fn decl_parser<'src>(
     input: &mut Lexer<'src, Token>,

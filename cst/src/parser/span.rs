@@ -1,5 +1,5 @@
 use crate::lexer::pos::Pos;
-use std::fmt::{Display, Formatter};
+use alloc::fmt::{Display, Formatter, Result};
 
 #[derive(Debug, Clone, Default)]
 pub struct Span<'src> {
@@ -8,7 +8,7 @@ pub struct Span<'src> {
 }
 
 impl<'src> Display for Span<'src> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         write!(f, "{}", self.ident)
     }
 }

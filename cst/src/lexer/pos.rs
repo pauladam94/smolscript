@@ -1,4 +1,5 @@
-use std::fmt::Display;
+use alloc::fmt::Display;
+use core::cmp::Ordering;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Pos {
@@ -7,13 +8,13 @@ pub struct Pos {
 }
 
 impl Display for Pos {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut alloc::fmt::Formatter<'_>) -> alloc::fmt::Result {
         write!(f, "pos : ({}, {})", self.line, self.column)
     }
 }
 
 impl PartialOrd for Pos {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         match self.line.partial_cmp(&other.line) {
             Some(core::cmp::Ordering::Equal) => {}
             ord => return ord,

@@ -2,6 +2,7 @@ use crate::{
     lexer::{CurrentLexerPos, Token, pos::Pos},
     parser::error::ParseError,
 };
+use alloc::{format, string::String};
 use logos::Lexer;
 
 pub mod span;

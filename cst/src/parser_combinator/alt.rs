@@ -2,6 +2,7 @@ use crate::lexer::CurrentLexerPos;
 use crate::lexer::pos::Pos;
 use crate::parser::Parser;
 use crate::parser::error::ParseError;
+use alloc::format;
 
 #[derive(Clone)]
 pub struct Alt<T> {

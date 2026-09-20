@@ -4,8 +4,8 @@ use crate::{
     parser::{Parser, error::ParseError, span::Span, types::types_parser},
     parser_combinator::{cut::cut, separated::separated},
 };
+use alloc::{collections::vec_deque::VecDeque, string::ToString};
 use logos::Lexer;
-use std::collections::VecDeque;
 
 pub fn args_parser<'src>(
     input: &mut Lexer<'src, Token>,

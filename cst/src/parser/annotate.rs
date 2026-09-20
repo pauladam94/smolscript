@@ -1,4 +1,5 @@
 use crate::lexer::Token;
+use alloc::string::String;
 use annotate_snippets::{AnnotationKind, Level, Renderer, Snippet};
 use logos::Lexer;
 

@@ -4,6 +4,7 @@ use crate::{
     parser::{Parser, error::ParseError},
     parser_combinator::alt::alt,
 };
+use alloc::string::ToString;
 use logos::Lexer;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
