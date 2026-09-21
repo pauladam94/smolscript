@@ -5,27 +5,25 @@ use crate::{
 use alloc::{format, string::String};
 use logos::Lexer;
 
-pub mod span;
-
-// Complete AST
-pub mod block;
+// Parser of specific element of the AST
 pub mod complete;
+pub mod block;
 pub mod decl;
 pub mod expr;
 pub mod if_else;
 pub mod method;
 pub mod token;
-
 pub mod args;
 pub mod index;
 pub mod literal;
 pub mod op;
 pub mod types;
 
-pub mod error;
 
-// Utilities
-pub mod annotate;
+
+
+pub mod span;
+pub mod error;
 
 /// [Parser] trait is a trait to write
 /// parser combinators
