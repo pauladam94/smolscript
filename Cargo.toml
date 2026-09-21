@@ -5,7 +5,6 @@ members = [
     "cst",               # Concrete Syntax Tree
     "checker",           # Type check of CST
     "ast",               # Abstract Syntax Tree (from CST + Typecheck)
-    "ast_interpreter",   # Interpreter of the AST
     "ast_to_c",          # Direct compilation to C
     "ssa",               # SSA Form (from AST)
     "asm",               # RISCV Assembly Language (from SSA)

@@ -1,8 +1,8 @@
-use crate::{
+use crate::interpreter::{
     continuation::Continuation, continuation_stack::ContinuationStack, memory::Memory,
     state::State, value::Value,
 };
-use ast::{AST, Constant, Decl, Expr, Method, VarIndexing};
+use crate::{AST, Constant, Decl, Expr, Method, VarIndexing};
 use colored::Colorize;
 use std::{
     collections::VecDeque,

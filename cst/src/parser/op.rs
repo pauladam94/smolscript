@@ -2,7 +2,7 @@ use crate::{
     CSTBinary, CSTUnary,
     lexer::Token,
     parser::{Parser, error::ParseError},
-    parser_combinator::alt::alt,
+    combinators::alt::alt,
 };
 use alloc::string::ToString;
 use logos::Lexer;

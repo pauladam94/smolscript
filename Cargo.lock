@@ -112,15 +112,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ast_interpreter"
-version = "0.1.0"
-dependencies = [
- "ast",
- "colored",
- "itertools",
-]
-
-[[package]]
 name = "ast_to_c"
 version = "0.1.0"
 dependencies = [
@@ -1621,7 +1612,6 @@ name = "tests"
 version = "0.1.0"
 dependencies = [
  "ast",
- "ast_interpreter",
  "checker",
  "colored",
  "cst",
@@ -1700,7 +1690,6 @@ dependencies = [
  "asm",
  "asm_interpreter",
  "ast",
- "ast_interpreter",
  "checker",
  "clap",
  "cst",

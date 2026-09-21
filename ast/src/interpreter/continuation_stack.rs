@@ -1,5 +1,5 @@
-use crate::continuation::Continuation;
 use std::fmt::Display;
+use crate::interpreter::continuation::Continuation;
 
 #[derive(Debug, Clone)]
 pub struct ContinuationStack {

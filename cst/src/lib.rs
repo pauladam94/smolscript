@@ -24,7 +24,7 @@ pub mod formatting;
 pub mod annotation;
 pub mod lexer;
 pub mod parser;
-pub mod parser_combinator;
+pub mod combinators;
 
 /// Main function of this crate.
 ///

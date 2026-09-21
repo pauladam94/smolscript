@@ -1,16 +1,9 @@
-use ast::cst_to_ast;
-use ast_interpreter::interpreter::Interpreter;
+use ast::{cst_to_ast, interpreter::interpreter::Interpreter};
 use colored::Colorize;
 use cst::cst_parser;
 use serde_derive::{Deserialize, Serialize};
 use std::process::{Command, Output};
 use test_each_file::test_each_file;
-
-#[test]
-fn r#arith(){
-    (full_test)([include_str!("/home/pauladam/github/smolscript/examples/arith_0.smol"),include_str!("/home/pauladam/github/smolscript/examples/arith_0.json"),])
-}
-
 
 test_each_file! { for ["smol", "json"] in "./examples" => full_test }
 

@@ -37,10 +37,10 @@ impl ParseError {
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub enum ParseErrorKind {
-    Incomplete,
-    Complete,
     #[default]
     Error,
+    Incomplete,
+    Complete,
     Unknown,
     Unrecoverable,
 }

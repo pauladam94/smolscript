@@ -7,11 +7,7 @@ edition = "2024"
 cst = { path = "../cst" }
 checker = { path = "../checker" }
 ast = { path = "../ast" }
-ast_interpreter = { path = "../ast_interpreter" }
 ssa = { path = "../ssa" }
-
-
-
 
 colored = "3"
 

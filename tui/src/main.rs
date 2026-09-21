@@ -1,5 +1,4 @@
-use ast::{AST, cst_to_ast};
-use ast_interpreter::interpreter::Interpreter;
+use ast::{AST, cst_to_ast, interpreter::interpreter::Interpreter};
 use clap::Parser;
 use cst::{CST, cst_parser};
 use ratatui::{

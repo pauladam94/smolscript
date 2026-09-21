@@ -1,4 +1,4 @@
-use ast::{Binary, Constant, Unary};
+use crate::{Binary, Constant, Unary};
 use itertools::Itertools;
 use std::{collections::VecDeque, fmt::Display};
 

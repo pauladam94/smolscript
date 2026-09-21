@@ -1,6 +1,6 @@
 use crate::{
     parser::Parser,
-    parser_combinator::{opt::opt, repeat::repeat},
+    combinators::{opt::opt, repeat::repeat},
 };
 use alloc::{collections::vec_deque::VecDeque, fmt::Debug};
 use core::ops::RangeBounds;

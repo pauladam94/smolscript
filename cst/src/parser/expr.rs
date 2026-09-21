@@ -7,7 +7,7 @@ use crate::{
         if_else_parser, index_parser, literal_parser, method_parser,
         op::{Associativity, binary_parser},
     },
-    parser_combinator::{alt::alt, cut::cut, opt::opt, repeat::repeat},
+    combinators::{alt::alt, cut::cut, opt::opt, repeat::repeat},
 };
 use alloc::{boxed::Box, string::ToString};
 use colored::Colorize;

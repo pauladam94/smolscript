@@ -1,5 +1,4 @@
-use crate::value::Value;
-use ast::{Constant, Identifier, VarIndexing};
+use crate::{Constant, Identifier, VarIndexing, interpreter::value::Value};
 use itertools::Itertools;
 use std::{
     collections::VecDeque,

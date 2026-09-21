@@ -1,4 +1,4 @@
-use crate::value::Value;
+use crate::interpreter::value::Value;
 
 pub mod continuation;
 pub mod continuation_stack;

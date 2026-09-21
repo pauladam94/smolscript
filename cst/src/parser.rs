@@ -2,7 +2,7 @@ use crate::{
     CST, CSTConstant, CSTDecl, CSTExpr, CSTIndex, CSTMethod, CSTTypes,
     lexer::{CurrentLexerPos, Token, pos::Pos},
     parser::{error::ParseError, expr::expr_parser, span::Span},
-    parser_combinator::{alt::alt, cut::cut, opt::opt, repeat::repeat, separated::separated},
+    combinators::{alt::alt, cut::cut, opt::opt, repeat::repeat, separated::separated},
 };
 use alloc::{
     boxed::Box, collections::vec_deque::VecDeque, format, string::{String, ToString}

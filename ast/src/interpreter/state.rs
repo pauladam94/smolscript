@@ -1,5 +1,4 @@
-use crate::value::Value;
-use ast::Expr;
+use crate::{Expr, interpreter::value::Value};
 use itertools::Itertools;
 use std::{
     collections::VecDeque,
