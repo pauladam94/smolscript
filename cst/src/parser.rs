@@ -1,29 +1,20 @@
 use crate::{
+    CST, CSTConstant, CSTDecl, CSTExpr, CSTIndex, CSTMethod, CSTTypes,
     lexer::{CurrentLexerPos, Token, pos::Pos},
-    parser::error::ParseError,
+    parser::{error::ParseError, expr::expr_parser, span::Span},
+    parser_combinator::{alt::alt, cut::cut, opt::opt, repeat::repeat, separated::separated},
 };
-use alloc::{format, string::String};
+use alloc::{
+    boxed::Box, collections::vec_deque::VecDeque, format, string::{String, ToString}
+};
 use logos::Lexer;
 
-// Parser of specific element of the AST
-pub mod complete;
-pub mod block;
-pub mod decl;
-pub mod expr;
-pub mod if_else;
-pub mod method;
-pub mod token;
-pub mod args;
-pub mod index;
-pub mod literal;
-pub mod op;
-pub mod types;
 
-
-
-
-pub mod span;
 pub mod error;
+pub mod span;
+
+pub mod expr;
+pub mod op;
 
 /// [Parser] trait is a trait to write
 /// parser combinators
@@ -128,4 +119,168 @@ impl Parser<Lexer<'_, Token>> for &str {
             }
         }
     }
+}
+
+/// Complete parser of the AST
+pub fn complete_parser<'src>(input: &mut Lexer<'src, Token>) -> Result<CST<'src>, ParseError> {
+    (decl_parser, block_parser)
+        .map(|(top_level, block)| CST {
+            top_level,
+            expr: CSTExpr::Block(block),
+        })
+        .parse(input)
+}
+
+/// Parsing of a block in the AST
+pub fn block_parser<'src>(
+    input: &mut Lexer<'src, Token>,
+) -> Result<VecDeque<CSTExpr<'src>>, ParseError> {
+    separated(0.., expr_parser, ";")
+        .context("While parsing a block".to_string())
+        .parse(input)
+}
+
+///
+pub fn decl_parser<'src>(
+    input: &mut Lexer<'src, Token>,
+) -> Result<VecDeque<CSTDecl<'src>>, ParseError> {
+    repeat(
+        0..,
+        (
+            "fn",
+            cut((
+                Token::Identifier,
+                "(",
+                args_parser,
+                ")",
+                opt(("->", types_parser).map(|(_, t)| t)).map(|t| t.unwrap_or(CSTTypes::UNIT)),
+                "{",
+                block_parser,
+                "}",
+            )),
+        )
+            .map(
+                |(_, (name, _, args, _, output_type, _, block, _))| CSTDecl {
+                    name,
+                    args,
+                    expr: CSTExpr::Block(block),
+                    output_type,
+                },
+            ),
+    )
+    .parse(input)
+}
+
+pub fn args_parser<'src>(
+    input: &mut Lexer<'src, Token>,
+) -> Result<VecDeque<(Span<'src>, CSTTypes)>, ParseError> {
+    separated(
+        0..,
+        (Token::Identifier, cut((":", types_parser))).map(|(var, (_, t))| (var, t)),
+        ",",
+    )
+    .context("While parsing arguments".to_string())
+    .parse(input)
+}
+
+pub fn if_else_parser<'src>(input: &mut Lexer<'src, Token>) -> Result<CSTExpr<'src>, ParseError> {
+    (
+        "if",
+        cut((
+            "(",
+            expr_parser,
+            ")",
+            "{",
+            block_parser,
+            "}",
+            opt((
+                "else",
+                alt((
+                    ("{", block_parser, "}").map(|(_, block, _)| block),
+                    expr_parser.map(|expr| VecDeque::from([expr])),
+                )),
+            )
+                .map(|(_, no)| no)),
+        )),
+    )
+        .map(|(_, (_, cond, _, _, yes, _, no))| CSTExpr::If {
+            cond: Box::new(cond),
+            yes,
+            no: no.unwrap_or(VecDeque::from([CSTExpr::Constant(CSTConstant::Unit)])),
+        })
+        .parse(input)
+}
+
+pub fn index_parser<'src>(input: &mut Lexer<'src, Token>) -> Result<CSTIndex<'src>, ParseError> {
+    (
+        Token::Identifier,
+        repeat(0.., ("[", Token::Identifier, "]").map(|(_, v, _)| v)),
+    )
+        .map(|(var, index)| CSTIndex { var, index })
+        .parse(input)
+}
+
+pub fn literal_parser<'src>() -> impl Parser<Lexer<'src, Token>, Output = CSTConstant> {
+    alt((
+        ("(", ")").map(|_| CSTConstant::Unit),
+        ("false").map(|_| CSTConstant::Bool(false)),
+        ("true").map(|_| CSTConstant::Bool(true)),
+        Token::Number.map(|span| match span.ident.parse::<u64>() {
+            Ok(i) => CSTConstant::Int(i),
+            Err(_) => CSTConstant::Float(span.ident.parse::<f32>().unwrap()),
+        }),
+    ))
+}
+
+pub fn method_parser<'src>(input: &mut Lexer<'src, Token>) -> Result<CSTMethod, ParseError> {
+    alt((
+        "replace".map(|_| CSTMethod::Replace),
+        "push".map(|_| CSTMethod::Push),
+        "pop".map(|_| CSTMethod::Pop),
+        "len".map(|_| CSTMethod::Len),
+    ))
+    .parse(input)
+}
+
+/// A given [Token] implements the [Parser] trait.
+/// The parser just check if the next token is the one given or returns an
+/// error.
+impl<'src> Parser<Lexer<'src, Token>> for Token {
+    type Output = Span<'src>;
+    fn parse(&mut self, input: &mut Lexer<'src, Token>) -> Result<Span<'src>, ParseError> {
+        match input.next() {
+            Some(Ok(t)) => {
+                if &t == self {
+                    Ok(Span {
+                        pos: input.pos(),
+                        ident: input.slice(),
+                    })
+                } else {
+                    Err(ParseError::default().with_error(format!(
+                        "Got the token '{t}' when waiting for the token '{self}'"
+                    )))
+                }
+            }
+            Some(Err(_)) | None => Err(ParseError::default().with_error(format!(
+                "No token anymore when waiting for '{self}' at position : {}",
+                input.pos()
+            ))),
+        }
+    }
+}
+
+pub fn types_parser<'src>(input: &mut Lexer<'src, Token>) -> Result<CSTTypes, ParseError> {
+    alt((
+        "u64".map(|_| CSTTypes::U64),
+        "u32".map(|_| CSTTypes::U32),
+        "u16".map(|_| CSTTypes::U16),
+        "u8".map(|_| CSTTypes::U8),
+        "bool".map(|_| CSTTypes::BOOL),
+        ("(", ")").map(|_| CSTTypes::UNIT),
+        ("[", cut((types_parser, "]"))).map(|(_, (mut t, _))| {
+            t.array_depth += 1;
+            t
+        }),
+    ))
+    .parse(input)
 }

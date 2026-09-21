@@ -2,9 +2,9 @@
 extern crate alloc;
 
 use crate::{
-    annotation::annotate, lexer::Token, parser::{
-        Parser, complete::complete_parser, error::ParseError, span::Span,
-    }
+    annotation::annotate,
+    lexer::Token,
+    parser::{Parser, complete_parser, error::ParseError, span::Span},
 };
 use alloc::{boxed::Box, collections::vec_deque::VecDeque, format, string::String};
 use logos::Logos;
