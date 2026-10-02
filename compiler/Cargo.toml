@@ -1,0 +1,23 @@
+[package]
+name = "compiler"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+# Lexer
+logos = "0.16.1"
+# Additional method useful with iterators
+itertools = "0.15.0"
+# Annotation tools to have nice errors on code
+annotate-snippets = "0.12.16"
+# Coloration string tool
+colored = "3"
+
+
+[dev-dependencies]
+colored = "3"
+test_each_file = "0.3.7"
+serde = "1.0.228"
+serde_derive = "1.0.228"
+serde_json = "1.0.140"
+rand = "0.10.3"

@@ -1,6 +1,10 @@
-use ast::{AST, cst_to_ast, interpreter::interpreter::Interpreter};
 use clap::Parser;
-use cst::{CST, cst_parser};
+use compiler::{
+    ast::AST,
+    ast::cst_to_ast,
+    ast_interpreter::interpreter::Interpreter,
+    cst::{CST, cst_parser},
+};
 use ratatui::{
     crossterm::event::{Event, KeyCode, KeyEvent, poll, read},
     layout::{Constraint, Layout, Margin},
@@ -39,7 +43,7 @@ impl<'src> State<'src> {
         Self {
             tabs_selection: 0,
             source_file,
-            interpreter: Interpreter::new(ast.clone()),
+            interpreter: Interpreter::new(ast.clone(), true),
             cst,
             ast,
         }

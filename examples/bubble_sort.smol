@@ -1,8 +1,8 @@
 
 
-fn bubble_sort(mut l : mut [u64]) -> [u64] {
-	let mut i = 0;
-	let mut cpt = 0;
+fn bubble_sort(l : mut [u64]) -> [u64] {
+	let i = 0;
+	let cpt = 0;
 	while (cpt != l.len()) {
 		if l[i] <= l[i + 1] {
 			cpt += 1;

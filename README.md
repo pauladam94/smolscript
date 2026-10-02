@@ -1,5 +1,6 @@
-# smolscript
-Scripting language for embedded research Project : Smolphone
+# Smolscript
+
+Scripting language for an embedded research Project named "Smolphone".
 
 
 

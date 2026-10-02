@@ -1,16 +1,8 @@
 [workspace]
 resolver = "3"
 members = [
-    "utils",             # Utils usefull for the whole compiler
-    "cst",               # Concrete Syntax Tree
-    "checker",           # Type check of CST
-    "ast",               # Abstract Syntax Tree (from CST + Typecheck)
-    "ast_to_c",          # Direct compilation to C
-    "ssa",               # SSA Form (from AST)
-    "asm",               # RISCV Assembly Language (from SSA)
-    "asm_interpreter",   # Interpreter of RISCV-IM Binary
-    "tui",               # TUI with as much information as possible on compilation
-    "tests"              # Tests of the whole compilation pipeline
+    "compiler", # Smolscript Compiler
+    "tui",      # TUI with as much information as possible on compilation
 ]
 
 [profile.release]
