@@ -5,6 +5,8 @@ pub enum Input {
     InterpreterBack,
     TabRight,
     TabLeft,
+    ScrollDown,
+    ScrollUp,
 }
 
 impl TryFrom<Event> for Input {
@@ -34,6 +36,16 @@ impl TryFrom<Event> for Input {
                 kind: KeyEventKind::Press,
                 ..
             }) => Ok(Input::InterpreterNext),
+            Event::Key(KeyEvent {
+                code: KeyCode::Down,
+                kind: KeyEventKind::Press,
+                ..
+            }) => Ok(Input::ScrollDown),
+            Event::Key(KeyEvent {
+                code: KeyCode::Up,
+                kind: KeyEventKind::Press,
+                ..
+            }) => Ok(Input::ScrollUp),
             Event::FocusGained
             | Event::FocusLost
             | Event::Key(_)

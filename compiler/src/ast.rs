@@ -87,15 +87,26 @@ pub enum Expr {
         var: Identifier,
         t: Types,
         expr: Box<Expr>,
+        body: Box<Expr>,
     },
     /// While loop of form : `while ( cond ) { body }`
-    While(While),
+    While {
+        cond: Box<Expr>,
+        body: Box<Expr>,
+    },
     /// If expression of form : `if (cond) { yes } else { no }`
-    If(If),
+    If {
+        cond: Box<Expr>,
+        yes: Box<Expr>,
+        no: Box<Expr>,
+    },
     /// Method call of form : `X.method(arg1, arg2, ...)`
     MethodCall(MethodCall),
     /// Function call of form : `name(arg1, arg2, ...)`
-    Call(Call),
+    Call {
+        name: Identifier,
+        args: VecDeque<Identifier>,
+    },
     /// Indexing `x[y] ... [y]`
     Index(Index),
     /// Binary expression of form : `lhs op rhs`
@@ -108,32 +119,10 @@ pub enum Expr {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-/// While loop of form : `while ( cond ) { body }`
-pub struct While {
-    pub cond: Box<Expr>,
-    pub body: VecDeque<Expr>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-/// If expression of form : `if (cond) { yes } else { no }`
-pub struct If {
-    pub cond: Identifier,
-    pub yes: VecDeque<Expr>,
-    pub no: VecDeque<Expr>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
 /// Method call of form : `X.method(arg1, arg2, ...)`
 pub struct MethodCall {
     pub index: Index,
     pub method: Method,
-    pub args: VecDeque<Identifier>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-/// Function call of form : `name(arg1, arg2, ...)`
-pub struct Call {
-    pub name: Identifier,
     pub args: VecDeque<Identifier>,
 }
 

@@ -22,9 +22,8 @@ unsafe impl GlobalAlloc for CounterAlloc {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         let ret = unsafe { System.alloc(layout) };
         if !ret.is_null() {
-            self.allocated.fetch_add(layout.size(), Relaxed);
-            self.max_allocated
-                .fetch_max(self.allocated.load(Relaxed), Relaxed);
+            let new_allocated = self.allocated.fetch_add(layout.size(), Relaxed) + layout.size();
+            self.max_allocated.fetch_max(new_allocated, Relaxed);
         }
         ret
     }

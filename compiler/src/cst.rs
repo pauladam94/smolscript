@@ -106,7 +106,7 @@ pub enum CSTExpr<'src> {
         args: VecDeque<CSTExpr<'src>>,
     },
     /// let [var] = [expr]
-    LetBindings {
+    Let {
         var: Span<'src>,
         t: Option<CSTTypes>,
         expr: Box<CSTExpr<'src>>,
@@ -119,13 +119,13 @@ pub enum CSTExpr<'src> {
     /// while ([cond]) { [block] }
     While {
         cond: Box<CSTExpr<'src>>,
-        block: VecDeque<CSTExpr<'src>>,
+        body: Box<CSTExpr<'src>>,
     },
     /// if ([cond]) { [yes] } else { [no] }
     If {
         cond: Box<CSTExpr<'src>>,
-        yes: VecDeque<CSTExpr<'src>>,
-        no: VecDeque<CSTExpr<'src>>,
+        yes: Box<CSTExpr<'src>>,
+        no: Box<CSTExpr<'src>>,
     },
     /// Constants : integer, strings, booleans, unit
     Constant(CSTConstant),

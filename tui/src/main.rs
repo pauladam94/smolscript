@@ -11,21 +11,24 @@ use ratatui::{
     prelude::{Buffer, Rect},
     style::Style,
     symbols,
-    widgets::{Block, Paragraph, Tabs, Widget},
+    widgets::{Block, Paragraph, ScrollbarState, Tabs, Widget},
 };
 use std::time::Duration;
 use tui::{args::Args, input::Input};
 
-const TABS_NUMBER: usize = 5;
+const TABS_NUMBER: usize = 7;
 const TABS_NAMES: [&str; TABS_NUMBER] = [
     "Source File",
     "CST",
+    "CST Debug",
     "AST",
+    "AST Debug",
     "C Generated Code",
     "Interpreter",
 ];
 
 pub struct State<'src> {
+    scrollbar: ScrollbarState,
     tabs_selection: usize,
     source_file: &'src str,
     cst: CST<'src>,
@@ -41,6 +44,7 @@ impl<'src> State<'src> {
         let ast = cst_to_ast(&cst);
 
         Self {
+            scrollbar: ScrollbarState::new(4000),
             tabs_selection: 0,
             source_file,
             interpreter: Interpreter::new(ast.clone(), true),
@@ -61,14 +65,20 @@ impl<'src> State<'src> {
             Input::InterpreterBack => {
                 self.interpreter.next_back();
             }
-            Input::TabRight => self.tabs_selection = ((self.tabs_selection + 1) % TABS_NUMBER),
+            Input::TabRight => {
+                self.scrollbar = self.scrollbar.position(0);
+                self.tabs_selection = ((self.tabs_selection + 1) % TABS_NUMBER)
+            }
             Input::TabLeft => {
+                self.scrollbar = self.scrollbar.position(0);
                 self.tabs_selection = if self.tabs_selection == 0 {
                     TABS_NUMBER - 1
                 } else {
                     self.tabs_selection - 1
                 }
             }
+            Input::ScrollDown => self.scrollbar.next(),
+            Input::ScrollUp => self.scrollbar.prev(),
         }
     }
 }
@@ -97,27 +107,37 @@ impl Widget for &State<'_> {
             .render(top_line, buf);
 
         match self.tabs_selection {
-            0 => Paragraph::new(format!("{}", self.source_file)).render(middle, buf),
-            1 => Paragraph::new(format!("{}", self.cst)).render(middle, buf),
-            2 => Paragraph::new(format!("{}", self.ast)).render(middle, buf),
-            3 => {
-                Paragraph::new(format!("C generated code not implemented yet")).render(middle, buf)
-            }
-            4 => {
+            0 => Paragraph::new(format!("{}", self.source_file))
+                .scroll((self.scrollbar.get_position() as u16, 0))
+                .render(middle, buf),
+            1 => Paragraph::new(format!("{}", self.cst))
+                .scroll((self.scrollbar.get_position() as u16, 0))
+                .render(middle, buf),
+            2 => Paragraph::new(format!("{:#?}", self.cst))
+                .scroll((self.scrollbar.get_position() as u16, 0))
+                .render(middle, buf),
+            3 => Paragraph::new(format!("{}", self.ast))
+                .scroll((self.scrollbar.get_position() as u16, 0))
+                .render(middle, buf),
+            4 => Paragraph::new(format!("{:#?}", self.ast))
+                .scroll((self.scrollbar.get_position() as u16, 0))
+                .render(middle, buf),
+            5 => Paragraph::new(format!("C generated code not implemented yet"))
+                .scroll((self.scrollbar.get_position() as u16, 0))
+                .render(middle, buf),
+            6 => {
                 let left_right = Layout::horizontal([Fill(1), Fill(1)]);
 
                 let layout = left_right.split(middle);
                 let (left, right) = (layout[0], layout[1]);
 
-                Paragraph::new(format!(
-                    "{}\n\n[κ]\n{}\n\n[Step] {}",
-                    self.interpreter.state, self.interpreter.continuation, self.interpreter.step
-                ))
-                // .wrap(Wrap { trim: true })
-                .block(Block::bordered())
-                .render(left, buf);
+                Paragraph::new(format!("{}", self.interpreter))
+                    .scroll((self.scrollbar.get_position() as u16, 0))
+                    .block(Block::bordered())
+                    .render(left, buf);
 
                 Paragraph::new(format!("{}", self.interpreter.memory))
+                    .scroll((self.scrollbar.get_position() as u16, 0))
                     .block(Block::bordered())
                     .render(right, buf);
             }
@@ -125,7 +145,7 @@ impl Widget for &State<'_> {
             _ => {}
         }
 
-        Paragraph::new("[q] | [echap] to quit \t [<-] | [->] step in interpreter \t [alt] + ([<-] | [->]) change tabs".to_string())
+        Paragraph::new("[q]       [echap] quit       [<-]/[->] step interpreter       [alt] + [<-]/[->] change tabs       [↑]/[↓] scrool up/down".to_string())
             .centered()
             .render(bottom_line, buf);
     }

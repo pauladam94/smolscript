@@ -2,7 +2,7 @@ use crate::ast::{
     BasicTypes, Binary, Constant, Decl, Expr, Identifier, Index, Method, Types, Unary,
 };
 use crate::{
-    ast::{BinaryOp, Call, If, MethodCall, UnaryOp, While},
+    ast::{BinaryOp, MethodCall, UnaryOp},
     cst::{
         CSTBasicTypes, CSTBinary, CSTConstant, CSTDecl, CSTExpr, CSTIndex, CSTMethod, CSTTypes,
         CSTUnary, parser::span::Span,
@@ -45,11 +45,32 @@ impl<'src> CSTConverter<'src> {
             expr: self.convert_expr(expr),
         }
     }
+
+    /// todo
+    pub(crate) fn convert_block(
+        &mut self,
+        block: &VecDeque<CSTExpr<'src>>,
+        index: usize,
+    ) -> VecDeque<Expr> {
+        let mut new_block = VecDeque::new();
+        for i in index..block.len() {
+            let expr = &block[i];
+            if let CSTExpr::Let { var, t, expr } = expr {
+                return VecDeque::from([Expr::Let {
+                    var: self.convert_span(var),
+                    t: Types::UNIT, // todo
+                    expr: Box::new(self.convert_expr(expr)),
+                    body: Box::new(Expr::Block(self.convert_block(block, i + 1))),
+                }]);
+            } else {
+                new_block.push_back(self.convert_expr(expr));
+            }
+        }
+        new_block
+    }
     pub(crate) fn convert_expr(&mut self, expr: &CSTExpr<'src>) -> Expr {
         match expr {
-            CSTExpr::Block(block) => {
-                Expr::Block(block.iter().map(|e| self.convert_expr(e)).collect())
-            }
+            CSTExpr::Block(block) => Expr::Block(self.convert_block(block, 0)),
             CSTExpr::Index(cstindex) => Expr::Index(self.convert_var_indexing(cstindex)),
             CSTExpr::MethodCall {
                 index,
@@ -61,73 +82,72 @@ impl<'src> CSTConverter<'src> {
                 args: args.iter().map(|span| self.convert_span(span)).collect(),
             }),
             CSTExpr::FunCall { name, args } => {
-                let mut n = 0;
                 let fresh_vars: VecDeque<Identifier> =
                     (0..args.len()).map(|_| self.fresh_var()).collect();
-                let mut statements: VecDeque<Expr> = args
-                    .iter()
-                    .enumerate()
-                    .map(|(i, expr)| {
-                        n += 1;
-                        Expr::Let {
-                            var: fresh_vars[i],
-                            t: Types::UNIT, // todo
-                            expr: Box::new(self.convert_expr(expr)),
-                        }
-                    })
-                    .collect();
-                statements.push_back(Expr::Call(Call {
+
+                let mut cbv_args = Expr::Call {
                     name: self.convert_span(name),
-                    args: fresh_vars,
-                }));
-                Expr::Block(statements)
+                    args: fresh_vars.clone(),
+                };
+
+                for (i, expr) in args.iter().enumerate() {
+                    cbv_args = Expr::Let {
+                        var: fresh_vars[i],
+                        t: Types::UNIT, // todo
+                        expr: Box::new(self.convert_expr(expr)),
+                        body: Box::new(cbv_args),
+                    }
+                }
+                cbv_args
             }
-            CSTExpr::LetBindings { var, t, expr } => Expr::Let {
+            CSTExpr::Let { var, t, expr } => Expr::Let {
                 var: self.convert_span(var),
                 // todo the right type
                 t: Types::UNIT, // from(t.unwrap()),
                 expr: Box::new(self.convert_expr(expr)),
+                body: Box::new(Expr::Block(VecDeque::new())),
             },
             CSTExpr::Assign { var, expr } => {
                 let fresh = self.fresh_var();
-                Expr::Block(VecDeque::from([
-                    Expr::Let {
-                        var: fresh,
-                        t: Types::UNIT, // todo
-                        expr: Box::new(self.convert_expr(expr)),
-                    },
-                    Expr::MethodCall(MethodCall {
+                Expr::Let {
+                    var: fresh,
+                    t: Types::UNIT, // todo
+                    expr: Box::new(self.convert_expr(expr)),
+                    body: Box::new(Expr::MethodCall(MethodCall {
                         index: self.convert_var_indexing(var),
                         method: Method::Replace,
                         args: VecDeque::from([fresh]),
-                    }),
-                ]))
+                    })),
+                }
             }
-            CSTExpr::While { cond, block } => Expr::While(While {
-                cond: Box::new(self.convert_expr(cond.as_ref())),
-                body: block.iter().map(|e| self.convert_expr(e)).collect(),
-            }),
-            CSTExpr::If { cond, yes, no } => {
-                let mut block = VecDeque::new();
-                let cond_ident = self.ident_from_block(cond, &mut block);
-                block.push_back(Expr::If(If {
-                    cond: cond_ident,
-                    yes: yes.iter().map(|e| self.convert_expr(e)).collect(),
-                    no: no.iter().map(|e| self.convert_expr(e)).collect(),
-                }));
-                Expr::Block(block)
-            }
+            CSTExpr::While { cond, body } => Expr::While {
+                cond: Box::new(self.convert_expr(cond)),
+                body: Box::new(self.convert_expr(body)),
+            },
+            CSTExpr::If { cond, yes, no } => Expr::If {
+                cond: Box::new(self.convert_expr(cond)),
+                yes: Box::new(self.convert_expr(yes)),
+                no: Box::new(self.convert_expr(no)),
+            },
             CSTExpr::Constant(constant) => Expr::Constant(Constant::from(constant)),
             CSTExpr::BinaryOp { lhs, op, rhs } => {
-                let mut block = VecDeque::new();
-                let lhs_ident = self.ident_from_block(lhs, &mut block);
-                let rhs_ident = self.ident_from_block(rhs, &mut block);
-                block.push_back(Expr::BinaryOp(BinaryOp {
-                    lhs: lhs_ident,
-                    op: Binary::from(op),
-                    rhs: rhs_ident,
-                }));
-                Expr::Block(block)
+                let lhs_var = self.fresh_var();
+                let rhs_var = self.fresh_var();
+                Expr::Let {
+                    var: lhs_var,
+                    t: Types::UNIT,
+                    expr: Box::new(self.convert_expr(lhs)),
+                    body: Box::new(Expr::Let {
+                        var: rhs_var,
+                        t: Types::UNIT,
+                        expr: Box::new(self.convert_expr(rhs)),
+                        body: Box::new(Expr::BinaryOp(BinaryOp {
+                            lhs: lhs_var,
+                            op: Binary::from(op),
+                            rhs: rhs_var,
+                        })),
+                    }),
+                }
             }
             CSTExpr::UnaryOp { lhs, op } => Expr::UnaryOp(UnaryOp {
                 lhs: self.convert_span(lhs),
@@ -138,21 +158,21 @@ impl<'src> CSTConverter<'src> {
     }
 
     /// Builds an identifier to replace a block of [Expr]
-    fn ident_from_block(&mut self, lhs: &CSTExpr<'src>, block: &mut VecDeque<Expr>) -> Identifier {
-        if let CSTExpr::Index(var_index) = lhs
-            && var_index.index.is_empty()
-        {
-            self.convert_span(&var_index.var)
-        } else {
-            let fresh = self.fresh_var();
-            block.push_back(Expr::Let {
-                var: fresh,
-                t: Types::UNIT, // todo
-                expr: Box::new(self.convert_expr(lhs)),
-            });
-            fresh
-        }
-    }
+    // fn ident_from_block(&mut self, lhs: &CSTExpr<'src>, block: &mut VecDeque<Expr>) -> Identifier {
+    //     if let CSTExpr::Index(var_index) = lhs
+    //         && var_index.index.is_empty()
+    //     {
+    //         self.convert_span(&var_index.var)
+    //     } else {
+    //         let fresh = self.fresh_var();
+    //         block.push_back(Expr::Let {
+    //             var: fresh,
+    //             t: Types::UNIT, // todo
+    //             expr: Box::new(self.convert_expr(lhs)),
+    //         });
+    //         fresh
+    //     }
+    // }
 
     fn convert_var_indexing(&mut self, cst_index: &CSTIndex<'src>) -> Index {
         let CSTIndex { var, index } = cst_index;

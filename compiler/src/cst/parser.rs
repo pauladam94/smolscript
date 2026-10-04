@@ -119,16 +119,21 @@ pub fn complete_parser<'src>(input: &mut Lexer<'src, Token>) -> Result<CST<'src>
     (decl_parser, block_parser)
         .map(|(top_level, block)| CST {
             top_level,
-            expr: CSTExpr::Block(block),
+            expr: block,
         })
         .parse(input)
 }
 
 /// Parsing of a block in the AST
-pub fn block_parser<'src>(
-    input: &mut Lexer<'src, Token>,
-) -> Result<VecDeque<CSTExpr<'src>>, ParseError> {
+pub fn block_parser<'src>(input: &mut Lexer<'src, Token>) -> Result<CSTExpr<'src>, ParseError> {
     separated(expr_parser, ";")
+        .map(|block| {
+            if block.len() == 1 {
+                block.into_iter().next().unwrap()
+            } else {
+                CSTExpr::Block(block)
+            }
+        })
         .context("While parsing a block")
         .parse(input)
 }
@@ -151,14 +156,12 @@ pub fn decl_parser<'src>(
                 "}",
             )),
         )
-            .map(
-                |(_, (name, _, args, _, output_type, _, block, _))| CSTDecl {
-                    name,
-                    args,
-                    expr: CSTExpr::Block(block),
-                    output_type,
-                },
-            ),
+            .map(|(_, (name, _, args, _, output_type, _, expr, _))| CSTDecl {
+                name,
+                args,
+                expr,
+                output_type,
+            }),
     )
     .parse(input)
 }
@@ -188,7 +191,7 @@ pub fn if_else_parser<'src>(input: &mut Lexer<'src, Token>) -> Result<CSTExpr<'s
                 "else",
                 alt((
                     ("{", block_parser, "}").map(|(_, block, _)| block),
-                    expr_parser.map(|expr| VecDeque::from([expr])),
+                    expr_parser,
                 )),
             )
                 .map(|(_, no)| no)),
@@ -196,8 +199,8 @@ pub fn if_else_parser<'src>(input: &mut Lexer<'src, Token>) -> Result<CSTExpr<'s
     )
         .map(|(_, (_, cond, _, _, yes, _, no))| CSTExpr::If {
             cond: Box::new(cond),
-            yes,
-            no: no.unwrap_or(VecDeque::from([CSTExpr::Constant(CSTConstant::Unit)])),
+            yes: Box::new(yes),
+            no: Box::new(no.unwrap_or(CSTExpr::Constant(CSTConstant::Unit))),
         })
         .parse(input)
 }

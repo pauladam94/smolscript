@@ -2,9 +2,9 @@ use crate::cst::{
     CST, CSTBasicTypes, CSTBinary, CSTConstant, CSTDecl, CSTExpr, CSTIndex, CSTMethod, CSTTypes,
     CSTUnary,
 };
+use crate::utils::pad::Pad;
 use alloc::fmt::{Display, Formatter, Result, Write};
 use itertools::Itertools;
-use crate::utils::pad::Pad;
 
 impl Display for CSTUnary {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
@@ -63,24 +63,21 @@ impl Display for CSTExpr<'_> {
                 args,
             } => write!(f, "{index}.{name}({})", args.iter().format(", ")),
             FunCall { name: fun, args } => write!(f, "{fun}({})", args.iter().format(", ")),
-            LetBindings { var, t, expr } => {
+            Let { var, t, expr } => {
                 if let Some(t) = t {
-                    write!(f, "let {var} : {t} = {expr}")
+                    write!(f, "let {var} : {t} = {expr}")?;
                 } else {
-                    write!(f, "let {var} = {expr}")
+                    write!(f, "let {var} = {expr}")?;
                 }
+                Ok(())
             }
             Assign { var, expr } => write!(f, "{var} := {expr}"),
-            While { cond, block } => {
-                write!(f, "while ({cond}) {{")?;
-                write!(Pad { f }, "\n{}", block.iter().format(";\n"))?;
-                write!(f, "\n}}")
-            }
+            While { cond, body } => write!(f, "while ({cond}) {{{body}}}"),
             If { cond, yes, no } => {
                 write!(f, "if ({cond}) {{")?;
-                write!(Pad { f }, "\n{}", yes.iter().format(";\n"),)?;
+                write!(Pad { f }, "\n{}", yes)?;
                 write!(f, "\n}} else {{")?;
-                write!(Pad { f }, "\n{}", no.iter().format(";\n"))?;
+                write!(Pad { f }, "\n{}", no)?;
                 write!(f, "\n}}")
             }
             Constant(constant) => write!(f, "{constant}"),

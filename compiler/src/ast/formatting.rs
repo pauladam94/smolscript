@@ -1,6 +1,6 @@
 use crate::ast::{
-    AST, BasicTypes, Binary, BinaryOp, Call, Constant, Decl, Expr, Identifier, If, Index, Method,
-    MethodCall, Types, Unary, UnaryOp, While,
+    AST, BasicTypes, Binary, BinaryOp, Constant, Decl, Expr, Identifier, Index, Method, MethodCall,
+    Types, Unary, UnaryOp,
 };
 use crate::utils::pad::Pad;
 use core::fmt::{Display, Formatter, Result, Write};
@@ -66,30 +66,52 @@ impl Display for Expr {
                 method,
                 args,
             }) => write!(f, "{index}.{method}({})", args.iter().format(", ")),
-            Expr::Call(Call { name, args }) => {
+            Expr::Call { name, args } => {
                 write!(f, "{name}({})", args.iter().format(", "))
             }
-            Expr::Let { var, t, expr } => {
+            Expr::Let { var, t, expr, body } => {
                 write!(f, "let {var} : {t} = ")?;
-                write!(Pad { f }, "{expr}")
+                write!(Pad { f }, "{expr}")?;
+                write!(f, ";\n{body}")
             }
-            Expr::While(While { cond, body: block }) => {
-                write!(f, "while ({cond}) {{")?;
-                write!(Pad { f }, "\n{}", block.iter().format(";\n"))?;
+            Expr::While { cond, body } => {
+                write!(f, "while (")?;
+                write!(Pad { f }, "\n{cond}")?;
+                write!(f, "\n) {{")?;
+                write!(Pad { f }, "\n{body}")?;
                 write!(f, "\n}}")
             }
-            Expr::If(If { cond, yes, no }) => {
+            Expr::If { cond, yes, no } => {
                 write!(f, "if {cond} {{")?;
-                write!(Pad { f }, "\n{}", yes.iter().format(";\n"))?;
+                write!(Pad { f }, "\n{}", yes)?;
                 write!(f, "\n}} else {{")?;
-                write!(Pad { f }, "\n{}", no.iter().format(";\n"))?;
+                write!(Pad { f }, "\n{}", no)?;
                 write!(f, "\n}}")
             }
             Expr::BinaryOp(BinaryOp { lhs, op, rhs }) => write!(f, "{lhs} {op} {rhs}"),
             Expr::UnaryOp(UnaryOp { lhs, op }) => write!(f, "{op} {lhs}"),
             Expr::Constant(constant) => write!(f, "{constant}"),
             Expr::EmptyVec => write!(f, "[]"),
-            Expr::Block(block) => write!(f, "{}", block.iter().format(";\n")),
+            Expr::Block(block) => {
+                write!(f, "{}", block.iter().format(";\n"))?;
+                // if block.len() == 1 {
+                //     write!(f, "{}", block[0])?;
+                // } else {
+                //     for expr in block.iter() {
+                //         write!( Pad {f}, "\n{};", expr)?;
+                //     }
+                //     // write!(Pad { f }, "{}", block.iter().format(";\n"))?;
+                // }
+                // if block.len() == 1 {
+                //     write!(f, "{}", block[0])?;
+                // } else {
+                //     write!(f, "{}", block.iter().format(";\n"))?;
+                //     // for expr in block.iter() {
+                //     //     write!(Pad { f }, "{};", expr)?;
+                //     // }
+                // }
+                Ok(())
+            }
         }
     }
 }

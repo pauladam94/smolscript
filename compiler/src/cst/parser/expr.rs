@@ -34,7 +34,7 @@ pub fn primary_expr_parser<'src>(
                 expr_parser,
             )),
         )
-            .map(|(_, (var, t, _, expr))| CSTExpr::LetBindings {
+            .map(|(_, (var, t, _, expr))| CSTExpr::Let {
                 var,
                 t: t.map(|(_, t)| t),
                 expr: Box::new(expr),
@@ -47,9 +47,9 @@ pub fn primary_expr_parser<'src>(
             "while",
             cut(("(", expr_parser, ")", "{", block_parser, "}")),
         )
-            .map(|(_, (_, cond, _, _, block, _))| CSTExpr::While {
+            .map(|(_, (_, cond, _, _, body, _))| CSTExpr::While {
                 cond: Box::new(cond),
-                block,
+                body: Box::new(body),
             })
             .context("While parsing a 'while' expression"),
         if_else_parser.context("While parsing an 'if' expression"),
