@@ -12,6 +12,8 @@ itertools = "0.15.0"
 annotate-snippets = "0.12.16"
 # Coloration string tool
 colored = "3"
+# Arena data structure
+id-arena = { version = "2.3.0", default-features = false}
 
 
 [dev-dependencies]

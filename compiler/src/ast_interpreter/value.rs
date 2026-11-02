@@ -22,7 +22,7 @@ impl Constant {
             | (Div, Bool(_), _)
             | (Mult, Bool(_), _)
             | (Sub, Bool(_), _)
-            | (LessThan, Bool(_), Bool(_)) => {
+            | (LessThan | LessThanEqual | MoreThan | MoreThanEqual, Bool(_), Bool(_)) => {
                 // dbg!(op, self, rhs);
                 unreachable!("Type checking should prevent this operation.")
             }
@@ -33,6 +33,9 @@ impl Constant {
             (Mult, Int(l), Int(r)) => Int(l * r),
             (Div, Int(l), Int(r)) => Int(l / r),
             (LessThan, Int(l), Int(r)) => Bool(l < r),
+            (LessThanEqual, Int(l), Int(r)) => Bool(l <= r),
+            (MoreThan, Int(l), Int(r)) => Bool(l > r),
+            (MoreThanEqual, Int(l), Int(r)) => Bool(l >= r),
         }
     }
 }

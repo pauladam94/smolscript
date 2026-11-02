@@ -49,11 +49,11 @@ impl std::fmt::Display for PPBytes {
         if *n < 1000 {
             write!(f, "{} bytes", self)
         } else if *n < 1000000 {
-            write!(f, "{} Ko {} bytes", n / 1000, n % 1000)
+            write!(f, "{} Ko", n / 1000)
         } else if *n < 1000000000 {
-            write!(f, "{} Mo {} Ko", n / 1000000, n % 1000000)
+            write!(f, "{} Mo", n / 1000000)
         } else {
-            write!(f, "{} Go {} Mo", n / 1000000000, n % 1000000000)
+            write!(f, "{} Go", n / 1000000000)
         }
     }
 }

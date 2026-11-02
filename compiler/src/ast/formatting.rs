@@ -1,6 +1,6 @@
 use crate::ast::{
-    AST, BasicTypes, Binary, BinaryOp, Constant, Decl, Expr, Identifier, Index, Method, MethodCall,
-    Types, Unary, UnaryOp,
+    AST, Binary, BinaryOp, Constant, Decl, Expr, Identifier, Index, Method, MethodCall, Unary,
+    UnaryOp,
 };
 use crate::utils::pad::Pad;
 use core::fmt::{Display, Formatter, Result, Write};
@@ -24,36 +24,10 @@ impl Display for Decl {
             self.args
                 .iter()
                 .format_with(", ", |(x, t), f| f(&format_args!("{x} : {t}"))),
-            self.output_type
+            self.return_type
         )?;
         write!(Pad { f }, "\n{}", self.expr)?;
         write!(f, "\n}}")
-    }
-}
-
-impl Display for Types {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        for _ in 0..self.depth {
-            write!(f, "[")?;
-        }
-        write!(f, "{}", self.basic)?;
-        for _ in 0..self.depth {
-            write!(f, "]")?;
-        }
-        Ok(())
-    }
-}
-
-impl Display for BasicTypes {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        match self {
-            BasicTypes::U64 => write!(f, "u64"),
-            BasicTypes::U32 => write!(f, "u32"),
-            BasicTypes::U16 => write!(f, "u16"),
-            BasicTypes::U8 => write!(f, "u8"),
-            BasicTypes::Bool => write!(f, "bool"),
-            BasicTypes::Unit => write!(f, "unit"),
-        }
     }
 }
 
@@ -143,6 +117,9 @@ impl Display for Binary {
             Binary::Equal => write!(f, "=="),
             Binary::NotEqual => write!(f, "!="),
             Binary::LessThan => write!(f, "<"),
+            Binary::LessThanEqual => write!(f, "<="),
+            Binary::MoreThan => write!(f, ">"),
+            Binary::MoreThanEqual => write!(f, ">="),
         }
     }
 }

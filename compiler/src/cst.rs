@@ -1,9 +1,9 @@
-use crate::cst::{
+use crate::{cst::{
     annotation::annotate,
-    lexer::Token,
+    lexer::{Token, pos::Pos},
     parser::{Parser, complete_parser, error::ParseError, span::Span},
-};
-use alloc::{boxed::Box, collections::vec_deque::VecDeque, format, string::String};
+}, types::Type};
+use alloc::{boxed::Box, collections::vec_deque::VecDeque, format, string::String, vec::Vec};
 use logos::Logos;
 
 /// Here we implement the [Display] trait for the whole [CST].
@@ -23,14 +23,12 @@ pub mod lexer;
 pub mod parser;
 pub mod parser_combinators;
 
-/// Main function of this crate.
-///
 /// This function parse from an `&str` the concrete syntax tree.
 /// This operation can fail and returns us with as much error as possible with
 /// the [ParseError] type that can be displayed.
-pub fn cst_parser<'src>(input: &'src str) -> Result<CST<'src>, ParseError> {
+pub fn parser<'src>(input: &'src str) -> Result<CST<'src>, ParseError> {
     let mut lexer = Token::lexer(input);
-    // lexer.peekable()
+    // lexer.peekable() // todo maybe make lexer peekable
     // lexer.spanned()
     let ast = complete_parser.parse(&mut lexer);
     match ast {
@@ -65,6 +63,10 @@ pub enum CSTBinary {
     Mult,
     EqEq,
     Neq,
+    LessThan,
+    LessThanEqual,
+    MoreThan,
+    MoreThanEqual,
 }
 
 /// Complete AST of a program
@@ -79,8 +81,8 @@ pub struct CST<'src> {
 #[derive(Debug, Clone)]
 pub struct CSTDecl<'src> {
     pub name: Span<'src>,
-    pub args: VecDeque<(Span<'src>, CSTTypes)>,
-    pub output_type: CSTTypes,
+    pub args: VecDeque<(Span<'src>, Type)>,
+    pub return_type: Type,
     pub expr: CSTExpr<'src>,
 }
 
@@ -94,7 +96,7 @@ pub enum CSTExpr<'src> {
     MethodCall {
         index: CSTIndex<'src>,
         method: CSTMethod,
-        args: VecDeque<Span<'src>>,
+        args: VecDeque<CSTExpr<'src>>,
     },
     /// f(x, y, ...)
     /// The builtin ones are :
@@ -108,7 +110,7 @@ pub enum CSTExpr<'src> {
     /// let [var] = [expr]
     Let {
         var: Span<'src>,
-        t: Option<CSTTypes>,
+        t: Option<Type>,
         expr: Box<CSTExpr<'src>>,
     },
     /// [var] := [expr]
@@ -120,12 +122,14 @@ pub enum CSTExpr<'src> {
     While {
         cond: Box<CSTExpr<'src>>,
         body: Box<CSTExpr<'src>>,
+        pos: Pos,
     },
     /// if ([cond]) { [yes] } else { [no] }
     If {
         cond: Box<CSTExpr<'src>>,
         yes: Box<CSTExpr<'src>>,
         no: Box<CSTExpr<'src>>,
+        pos: Pos,
     },
     /// Constants : integer, strings, booleans, unit
     Constant(CSTConstant),
@@ -137,7 +141,7 @@ pub enum CSTExpr<'src> {
     },
     /// [lhs] [op] [rhs]
     UnaryOp {
-        lhs: Span<'src>,
+        lhs: Box<CSTExpr<'src>>,
         op: CSTUnary,
     },
     /// Empty vector written : `[]`
@@ -173,19 +177,5 @@ pub enum CSTMethod {
     Len,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct CSTTypes {
-    pub array_depth: u8,
-    pub basic: CSTBasicTypes,
-}
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum CSTBasicTypes {
-    U64,
-    U32,
-    U16,
-    U8,
-    Unit,
-    Bool,
-}
 pub mod types;

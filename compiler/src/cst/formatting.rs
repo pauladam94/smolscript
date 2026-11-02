@@ -1,7 +1,5 @@
-use crate::cst::{
-    CST, CSTBasicTypes, CSTBinary, CSTConstant, CSTDecl, CSTExpr, CSTIndex, CSTMethod, CSTTypes,
-    CSTUnary,
-};
+use crate::cst::{CST, CSTBinary, CSTConstant, CSTDecl, CSTExpr, CSTIndex, CSTMethod, CSTUnary};
+use crate::types::{Type, TypeNode};
 use crate::utils::pad::Pad;
 use alloc::fmt::{Display, Formatter, Result, Write};
 use itertools::Itertools;
@@ -31,6 +29,10 @@ impl Display for CSTBinary {
             CSTBinary::Mult => write!(f, "*"),
             CSTBinary::EqEq => write!(f, "=="),
             CSTBinary::Neq => write!(f, "!="),
+            CSTBinary::LessThan => write!(f, "<"),
+            CSTBinary::LessThanEqual => write!(f, "<="),
+            CSTBinary::MoreThan => write!(f, ">"),
+            CSTBinary::MoreThanEqual => write!(f, ">="),
         }
     }
 }
@@ -44,7 +46,7 @@ impl Display for CSTDecl<'_> {
             self.args
                 .iter()
                 .format_with(", ", |(x, t), f| f(&format_args!("{x} : {t}"))),
-            self.output_type
+            self.return_type
         )?;
         write!(Pad { f }, "\n{}", self.expr)?;
         write!(f, "\n}}")
@@ -72,8 +74,13 @@ impl Display for CSTExpr<'_> {
                 Ok(())
             }
             Assign { var, expr } => write!(f, "{var} := {expr}"),
-            While { cond, body } => write!(f, "while ({cond}) {{{body}}}"),
-            If { cond, yes, no } => {
+            While { cond, body, pos: _ } => write!(f, "while ({cond}) {{{body}}}"),
+            If {
+                cond,
+                yes,
+                no,
+                pos: _,
+            } => {
                 write!(f, "if ({cond}) {{")?;
                 write!(Pad { f }, "\n{}", yes)?;
                 write!(f, "\n}} else {{")?;
@@ -119,28 +126,53 @@ impl Display for CSTMethod {
         }
     }
 }
-impl Display for CSTBasicTypes {
+
+impl Display for TypeRef<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        match self {
-            CSTBasicTypes::U64 => write!(f, "u64"),
-            CSTBasicTypes::U32 => write!(f, "u32"),
-            CSTBasicTypes::U16 => write!(f, "u16"),
-            CSTBasicTypes::U8 => write!(f, "u8"),
-            CSTBasicTypes::Unit => write!(f, "()"),
-            CSTBasicTypes::Bool => write!(f, "bool"),
+        use TypeNode::*;
+        match &self.store[self.root] {
+            U64 => write!(f, "u64"),
+            U32 => write!(f, "u32"),
+            U16 => write!(f, "u16"),
+            U8 => write!(f, "u8"),
+            Bool => write!(f, "bool"),
+            Unit => write!(f, "()"),
+            Array(array) => write!(
+                f,
+                "[{}]",
+                TypeRef {
+                    store: self.store,
+                    root: *array
+                }
+            ),
+            Pair(fst, snd) => write!(
+                f,
+                "({}, {})",
+                TypeRef {
+                    store: self.store,
+                    root: *fst
+                },
+                TypeRef {
+                    store: self.store,
+                    root: *snd
+                }
+            ),
+            Unknown => write!(f, "?"),
         }
     }
 }
 
-impl Display for CSTTypes {
+pub struct TypeRef<'a> {
+    store: &'a [TypeNode],
+    root: usize,
+}
+
+impl Display for Type {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        for _ in 0..self.array_depth {
-            write!(f, "[")?;
-        }
-        write!(f, "{}", self.basic)?;
-        for _ in 0..self.array_depth {
-            write!(f, "]")?;
-        }
-        Ok(())
+        let type_ref = TypeRef {
+            store: &self.store,
+            root: self.root,
+        };
+        write!(f, "{}", type_ref)
     }
 }

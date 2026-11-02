@@ -1,8 +1,11 @@
-use crate::cst::{
-    CST, CSTConstant, CSTDecl, CSTExpr, CSTIndex, CSTMethod, CSTTypes,
-    lexer::{CurrentLexerPos, Token, pos::Pos},
-    parser::{error::ParseError, expr::expr_parser, span::Span},
-    parser_combinators::{alt::alt, cut::cut, many::many, opt::opt, separated::separated},
+use crate::{
+    cst::{
+        CST, CSTConstant, CSTDecl, CSTExpr, CSTIndex, CSTMethod,
+        lexer::{CurrentLexerPos, Token, pos::Pos},
+        parser::{error::ParseError, expr::expr_parser, span::Span},
+        parser_combinators::{alt::alt, cut::cut, many::many, opt::opt, separated::separated},
+    },
+    types::Type,
 };
 use alloc::{boxed::Box, collections::vec_deque::VecDeque, format, string::ToString};
 use logos::Lexer;
@@ -150,7 +153,7 @@ pub fn decl_parser<'src>(
                 "(",
                 args_parser,
                 ")",
-                opt(("->", types_parser).map(|(_, t)| t)).map(|t| t.unwrap_or(CSTTypes::UNIT)),
+                opt(("->", types_parser).map(|(_, t)| t)).map(|t| t.unwrap_or(Type::unit())),
                 "{",
                 block_parser,
                 "}",
@@ -160,7 +163,7 @@ pub fn decl_parser<'src>(
                 name,
                 args,
                 expr,
-                output_type,
+                return_type: output_type,
             }),
     )
     .parse(input)
@@ -168,7 +171,7 @@ pub fn decl_parser<'src>(
 
 pub fn args_parser<'src>(
     input: &mut Lexer<'src, Token>,
-) -> Result<VecDeque<(Span<'src>, CSTTypes)>, ParseError> {
+) -> Result<VecDeque<(Span<'src>, Type)>, ParseError> {
     separated(
         (Token::Identifier, cut((":", types_parser))).map(|(var, (_, t))| (var, t)),
         ",",
@@ -189,18 +192,19 @@ pub fn if_else_parser<'src>(input: &mut Lexer<'src, Token>) -> Result<CSTExpr<'s
             "}",
             opt((
                 "else",
-                alt((
+                cut(alt((
                     ("{", block_parser, "}").map(|(_, block, _)| block),
                     expr_parser,
-                )),
+                ))),
             )
                 .map(|(_, no)| no)),
         )),
     )
-        .map(|(_, (_, cond, _, _, yes, _, no))| CSTExpr::If {
+        .map(|(if_pos, (_, cond, _, _, yes, _, no))| CSTExpr::If {
             cond: Box::new(cond),
             yes: Box::new(yes),
             no: Box::new(no.unwrap_or(CSTExpr::Constant(CSTConstant::Unit))),
+            pos: if_pos,
         })
         .parse(input)
 }
@@ -263,14 +267,14 @@ impl<'src> Parser<Lexer<'src, Token>> for Token {
     }
 }
 
-pub fn types_parser<'src>(input: &mut Lexer<'src, Token>) -> Result<CSTTypes, ParseError> {
+pub fn types_parser<'src>(input: &mut Lexer<'src, Token>) -> Result<Type, ParseError> {
     alt((
-        "u64".map(|_| CSTTypes::U64),
-        "u32".map(|_| CSTTypes::U32),
-        "u16".map(|_| CSTTypes::U16),
-        "u8".map(|_| CSTTypes::U8),
-        "bool".map(|_| CSTTypes::BOOL),
-        ("(", ")").map(|_| CSTTypes::UNIT),
+        "u64".map(|_| Type::U64),
+        "u32".map(|_| Type::U32),
+        "u16".map(|_| Type::U16),
+        "u8".map(|_| Type::U8),
+        "bool".map(|_| Type::BOOL),
+        ("(", ")").map(|_| Type::UNIT),
         ("[", cut((types_parser, "]"))).map(|(_, (mut t, _))| {
             t.array_depth += 1;
             t

@@ -1,6 +1,4 @@
-
-
-fn bubble_sort(l : mut [u64]) -> [u64] {
+fn bubble_sort(l : [u64]) -> [u64] {
 	let i = 0;
 	let cpt = 0;
 	while (cpt != l.len()) {

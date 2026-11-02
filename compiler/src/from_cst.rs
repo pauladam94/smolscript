@@ -19,6 +19,7 @@ pub(crate) struct CSTConverter<'src> {
     index: usize,
     types: Vec<(Identifier, Types)>,
     identifier_mapping: BTreeMap<&'src str, Identifier>,
+    type_errors: Vec<TypeError>
 }
 impl CSTConverter<'_> {
     pub fn fresh_var(&mut self) -> Identifier {
@@ -28,7 +29,7 @@ impl CSTConverter<'_> {
 }
 
 impl<'src> CSTConverter<'src> {
-    pub(crate) fn convert_decl(&mut self, cst_decl: &CSTDecl<'src>) -> Decl {
+    pub(crate) fn convert_decl(&mut self, cst_decl: &CSTDecl<'src>) -> Result<Decl {
         let CSTDecl {
             name,
             args,
@@ -76,11 +77,24 @@ impl<'src> CSTConverter<'src> {
                 index,
                 method,
                 args,
-            } => Expr::MethodCall(MethodCall {
-                index: self.convert_var_indexing(index),
-                method: Method::from(method),
-                args: args.iter().map(|span| self.convert_span(span)).collect(),
-            }),
+            } => {
+                let fresh_vars: VecDeque<Identifier> =
+                    (0..args.len()).map(|_| self.fresh_var()).collect();
+                let mut cbv_args = Expr::MethodCall(MethodCall {
+                    index: self.convert_var_indexing(index),
+                    method: Method::from(method),
+                    args: fresh_vars.clone(),
+                });
+                for (i, expr) in args.iter().enumerate() {
+                    cbv_args = Expr::Let {
+                        var: fresh_vars[i],
+                        t: Types::UNIT, // todo
+                        expr: Box::new(self.convert_expr(expr)),
+                        body: Box::new(cbv_args),
+                    }
+                }
+                cbv_args
+            }
             CSTExpr::FunCall { name, args } => {
                 let fresh_vars: VecDeque<Identifier> =
                     (0..args.len()).map(|_| self.fresh_var()).collect();
@@ -157,23 +171,6 @@ impl<'src> CSTConverter<'src> {
         }
     }
 
-    /// Builds an identifier to replace a block of [Expr]
-    // fn ident_from_block(&mut self, lhs: &CSTExpr<'src>, block: &mut VecDeque<Expr>) -> Identifier {
-    //     if let CSTExpr::Index(var_index) = lhs
-    //         && var_index.index.is_empty()
-    //     {
-    //         self.convert_span(&var_index.var)
-    //     } else {
-    //         let fresh = self.fresh_var();
-    //         block.push_back(Expr::Let {
-    //             var: fresh,
-    //             t: Types::UNIT, // todo
-    //             expr: Box::new(self.convert_expr(lhs)),
-    //         });
-    //         fresh
-    //     }
-    // }
-
     fn convert_var_indexing(&mut self, cst_index: &CSTIndex<'src>) -> Index {
         let CSTIndex { var, index } = cst_index;
         Index {
@@ -230,6 +227,10 @@ impl From<&CSTBinary> for Binary {
             CSTBinary::Div => Binary::Div,
             CSTBinary::EqEq => Binary::Equal,
             CSTBinary::Neq => Binary::NotEqual,
+            CSTBinary::LessThan => Binary::LessThan,
+            CSTBinary::LessThanEqual => Binary::LessThanEqual,
+            CSTBinary::MoreThan => Binary::MoreThan,
+            CSTBinary::MoreThanEqual => Binary::MoreThanEqual,
         }
     }
 }

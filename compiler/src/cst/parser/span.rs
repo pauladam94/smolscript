@@ -1,7 +1,7 @@
 use crate::cst::lexer::pos::Pos;
 use alloc::fmt::{Display, Formatter, Result};
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Copy, Default, Eq)]
 pub struct Span<'src> {
     pub pos: Pos,
     pub ident: &'src str,

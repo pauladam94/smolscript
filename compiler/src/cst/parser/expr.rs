@@ -47,9 +47,10 @@ pub fn primary_expr_parser<'src>(
             "while",
             cut(("(", expr_parser, ")", "{", block_parser, "}")),
         )
-            .map(|(_, (_, cond, _, _, body, _))| CSTExpr::While {
+            .map(|(while_pos, (_, cond, _, _, body, _))| CSTExpr::While {
                 cond: Box::new(cond),
                 body: Box::new(body),
+                pos: while_pos,
             })
             .context("While parsing a 'while' expression"),
         if_else_parser.context("While parsing an 'if' expression"),
@@ -66,7 +67,8 @@ pub fn primary_expr_parser<'src>(
             cut((
                 method_parser,
                 "(",
-                many((Token::Identifier, opt(",")).map(|(s, _)| s)),
+                // todo accept any expression here
+                many((expr_parser, opt(",")).map(|(s, _)| s)),
                 ")",
             )),
         )

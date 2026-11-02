@@ -1,6 +1,6 @@
 use crate::counter_alloc::{CounterAlloc, PPBytes};
 use colored::Colorize;
-use compiler::{ast::cst_to_ast, ast_interpreter::interpreter::Interpreter, cst::cst_parser};
+use compiler::{ast::type_check, ast_interpreter::interpreter::Interpreter, cst::parser};
 use std::sync::atomic::Ordering;
 
 mod counter_alloc;
@@ -24,15 +24,15 @@ pub fn print_allocation(s: &str) {
 
 #[test]
 pub fn run_one_file() {
-    let file = include_str!("../../examples/comments_simple.smol");
-    // let file = include_str!("../../examples/fibo_imp_acc.smol");
+    // let file = include_str!("../../examples/comments_simple.smol");
+    let file = include_str!("../../examples/fibo_imp_acc.smol");
     // let file = include_str!("../../examples/simple_let.smol");
     print_allocation("BEGINS");
 
-    let cst = cst_parser(file).unwrap();
+    let cst = parser(file).unwrap();
     print_allocation("After Parsing");
 
-    let ast = cst_to_ast(&cst);
+    let ast = type_check(&cst).unwrap();
     print_allocation("After Type checking");
 
     let mut interpreter = Interpreter::new(ast, false);

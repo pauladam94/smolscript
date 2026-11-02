@@ -1,16 +1,15 @@
 use clap::Parser;
 use compiler::{
     ast::AST,
-    ast::cst_to_ast,
+    ast::type_check,
     ast_interpreter::interpreter::Interpreter,
-    cst::{CST, cst_parser},
+    cst::{CST, parser},
 };
 use ratatui::{
     crossterm::event::{Event, KeyCode, KeyEvent, poll, read},
     layout::{Constraint, Layout, Margin},
     prelude::{Buffer, Rect},
     style::Style,
-    symbols,
     widgets::{Block, Paragraph, ScrollbarState, Tabs, Widget},
 };
 use std::time::Duration;
@@ -38,10 +37,10 @@ pub struct State<'src> {
 
 impl<'src> State<'src> {
     pub fn new(source_file: &'src str) -> State<'src> {
-        let cst = cst_parser(source_file).unwrap_or_else(|e| {
+        let cst = parser(source_file).unwrap_or_else(|e| {
             panic!("Failed to parse this file '{source_file}'.\nGot this error : \n{e}")
         });
-        let ast = cst_to_ast(&cst);
+        let ast = type_check(&cst);
 
         Self {
             scrollbar: ScrollbarState::new(4000),
@@ -93,7 +92,7 @@ impl Widget for &State<'_> {
         Block::bordered().render(area, buf);
         let area = area.inner(Margin::new(1, 1));
 
-        let status_line = Layout::vertical([Length(3), Fill(1), Length(1)]);
+        let status_line = Layout::vertical([Length(3), Fill(1), Length(2)]);
         let layout = status_line.split(area);
         let (top_line, middle, bottom_line) = (layout[0], layout[1], layout[2]);
 
@@ -102,8 +101,8 @@ impl Widget for &State<'_> {
             .style(Style::default().white())
             .highlight_style(Style::default().blue())
             .select(self.tabs_selection)
-            .divider(symbols::DOT)
-            .padding("->", "<-")
+            .divider("  ")
+            .padding("[", "]")
             .render(top_line, buf);
 
         match self.tabs_selection {
@@ -144,10 +143,13 @@ impl Widget for &State<'_> {
             TABS_NUMBER => {}
             _ => {}
         }
-
-        Paragraph::new("[q]       [echap] quit       [<-]/[->] step interpreter       [alt] + [<-]/[->] change tabs       [↑]/[↓] scrool up/down".to_string())
+        Paragraph::new("[q]       [echap] quit       [<-]/[->] step interpreter       [alt] + [<-]/[->] change tabs       [↑]/[↓] scrool up/down".to_string()).block(
+            Block::bordered()
+            )
             .centered()
-            .render(bottom_line, buf);
+            .           render(Rect::new(
+
+                bottom_line.x - 1, bottom_line.y, bottom_line.width + 2, bottom_line.height + 1), buf);
     }
 }
 

@@ -1,6 +1,6 @@
 use crate::counter_alloc::{CounterAlloc, PPBytes};
 use colored::Colorize;
-use compiler::{ast::cst_to_ast, ast_interpreter::interpreter::Interpreter, cst::cst_parser};
+use compiler::{ast::type_check, ast_interpreter::interpreter::Interpreter, cst::parser};
 use serde_derive::{Deserialize, Serialize};
 use std::{
     process::{Command, Output},
@@ -34,7 +34,7 @@ fn full_test([file, json_file]: [&str; 2]) {
 
     println!("{} :\n{}", "[ORIGINAL FILE]".purple(), file);
     // Parsing of the original file
-    let file_parse = cst_parser(file);
+    let file_parse = parser(file);
 
     // If we except a failed parsed then we stop here the test
     if let Fail = test_info
@@ -57,13 +57,13 @@ fn full_test([file, json_file]: [&str; 2]) {
 
     // We get the
     let cst_print = format!("{cst}");
-    let cst_2 = cst_parser(&cst_print).unwrap_or_else(|err| {
+    let cst_2 = parser(&cst_print).unwrap_or_else(|err| {
         panic!("Parsing of the printed CST should success but failed with errors :\n{err}")
     });
 
-    let ast = cst_to_ast(&cst);
+    let ast = type_check(&cst);
     println!("{} : \n{}\n---", "[SUCCESS] Parsing of AST", ast);
-    let ast_2 = cst_to_ast(&cst_2);
+    let ast_2 = type_check(&cst_2);
 
     if ast != ast_2 {
         panic!(
@@ -91,17 +91,17 @@ fn full_test([file, json_file]: [&str; 2]) {
             json_file
         )
     });
-    let expected_cst_output = cst_parser(input_str)
+    let expected_cst_output = parser(input_str)
         .unwrap_or_else(|err| panic!("Parsing should success but failed with errors :\n{err}"));
 
-    let mut expected_interpreter = Interpreter::new(cst_to_ast(&expected_cst_output), false);
+    let mut expected_interpreter = Interpreter::new(type_check(&expected_cst_output), false);
     while let Some(_) = expected_interpreter.next() {}
     let expected_value = expected_interpreter
         .get_value()
         .unwrap_or_else(|| panic!("The output failed during interpretation"));
 
     // File should be interpreted to get a value
-    let mut interpreter = Interpreter::new(cst_to_ast(&cst), false);
+    let mut interpreter = Interpreter::new(type_check(&cst), false);
     while let Some(_) = interpreter.next() {}
     let value = interpreter.get_value().unwrap_or_else(|| {
         panic!("The execution stopped but it crashed. It didn't end with a value.")

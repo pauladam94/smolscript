@@ -16,12 +16,16 @@ impl CSTBinary {
     /// [here](https://fr.cppreference.com/c/language/operator_precedence)
     pub const fn precedence(&self) -> usize {
         match self {
-            CSTBinary::Add => 2,
-            CSTBinary::Sub => 2,
-            CSTBinary::Div => 3,
-            CSTBinary::Mult => 3,
+            CSTBinary::Add => 3,
+            CSTBinary::Sub => 3,
+            CSTBinary::Div => 4,
+            CSTBinary::Mult => 4,
             CSTBinary::EqEq => 1,
             CSTBinary::Neq => 1,
+            CSTBinary::LessThan => 2,
+            CSTBinary::LessThanEqual => 2,
+            CSTBinary::MoreThan => 2,
+            CSTBinary::MoreThanEqual => 2,
         }
     }
     /// Associativity of binary operators following the C standard describe
@@ -33,7 +37,11 @@ impl CSTBinary {
             | CSTBinary::Div
             | CSTBinary::Mult
             | CSTBinary::EqEq
-            | CSTBinary::Neq => Associativity::LeftToRight,
+            | CSTBinary::Neq
+            | CSTBinary::LessThan
+            | CSTBinary::LessThanEqual
+            | CSTBinary::MoreThan
+            | CSTBinary::MoreThanEqual => Associativity::LeftToRight,
         }
     }
 }
@@ -46,6 +54,10 @@ pub fn binary_parser<'src>(input: &mut Lexer<'src, Token>) -> Result<CSTBinary, 
         "*".map(|_| CSTBinary::Mult),
         "==".map(|_| CSTBinary::EqEq),
         "!=".map(|_| CSTBinary::Neq),
+        "<".map(|_| CSTBinary::LessThan),
+        "<=".map(|_| CSTBinary::LessThanEqual),
+        ">".map(|_| CSTBinary::MoreThan),
+        ">=".map(|_| CSTBinary::MoreThanEqual),
     ))
     .context("While parsing a binary operator")
     .parse(input)

@@ -1,7 +1,7 @@
 use alloc::fmt::Display;
 use core::cmp::Ordering;
 
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Pos {
     pub line: u32,
     pub column: u32,

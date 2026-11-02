@@ -23,7 +23,10 @@ where
         let past_input = input.clone();
         match self.parser.parse(input) {
             Ok(o) => Ok(Some(o)),
-            Err(_) => {
+            Err(e) => {
+                if e.is_cut() {
+                    return Err(e);
+                }
                 *input = past_input;
                 Ok(None)
             }
