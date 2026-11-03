@@ -1,22 +1,39 @@
-use id_arena::ArenaBehavior;
+use alloc::vec::Vec;
+use core::ops::{Index, IndexMut};
+pub type ArenaId = u16;
 
-pub struct CompactArenaBehavior {}
+pub struct Arena<T> {
+    pub items: Vec<T>,
+}
 
-impl ArenaBehavior for CompactArenaBehavior {
-    type Id = u16;
-
-    fn new_id(arena_id: u32, index: usize) -> Self::Id {
-        index as u16
+impl<T> Arena<T> {
+    pub fn new() -> Self {
+        Self { items: Vec::new() }
     }
-
-    fn index(id: Self::Id) -> usize {
-        id as usize
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self {
+            items: Vec::with_capacity(capacity),
+        }
     }
-
-    fn arena_id(id: Self::Id) -> u32 {
-        0
+    pub fn alloc(&mut self, node: T) -> ArenaId {
+        self.items.push(node);
+        return (self.items.len() - 1) as u16;
+    }
+    pub fn iter(&self) -> () {
+        todo!()
     }
 }
 
-pub type Arena<T> = id_arena::Arena<T, CompactArenaBehavior>;
-pub type ArenaID = u32;
+impl<T> Index<ArenaId> for Arena<T> {
+    type Output = T;
+
+    fn index(&self, index: ArenaId) -> &Self::Output {
+        &self.items[index as usize]
+    }
+}
+
+impl<T> IndexMut<ArenaId> for Arena<T> {
+    fn index_mut(&mut self, index: ArenaId) -> &mut Self::Output {
+        &mut self.items[index as usize]
+    }
+}

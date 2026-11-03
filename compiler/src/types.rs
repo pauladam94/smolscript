@@ -1,7 +1,7 @@
+use crate::utils::arena::ArenaId;
 use alloc::vec::Vec;
-use id_arena::Id;
 
-pub type TypeID = ArenaId;
+pub type TypeId = ArenaId;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TypeNode {
@@ -11,8 +11,8 @@ pub enum TypeNode {
     U8,
     Bool,
     Unit,
-    Array(TypeID),
-    Pair(TypeID, TypeID),
+    Array(TypeId),
+    Pair(TypeId, TypeId),
     Unknown,
 }
 

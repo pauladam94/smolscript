@@ -1,9 +1,9 @@
 use crate::{
-    checker::type_error::TypeError, compact_ast::direct_parser::Parser, cst::{
-        annotation::annotate,
-        lexer::{Token, pos::Pos},
-        parser::span::Span,
-    }, types::{Type, TypeID},
+    checker::type_error::TypeError,
+    compact_ast::direct_parser::Parser,
+    cst::{annotation::annotate, lexer::Token},
+    types::{Type, TypeId},
+    utils::arena::{Arena, ArenaId},
 };
 use alloc::{format, string::String, vec::Vec};
 use logos::Logos;
@@ -14,6 +14,8 @@ pub mod direct_parser;
 /// Module containing all [Display] implementation for the AST
 pub mod formatting;
 
+pub mod type_check;
+
 /// This function parse from an `&str` the concrete syntax tree.
 /// This operation can fail and returns us with as much error as possible with
 /// the [ParseError] type that can be displayed.
@@ -22,7 +24,7 @@ pub fn parser<'src>(input: &'src str) -> Result<AST<'src>, String> {
     let mut parser = Parser::new(&mut lexer);
     let ast = parser.parse_program();
     match ast {
-        Ok(o) => match lexer.next() {
+        Some(o) => match lexer.next() {
             Some(Ok(_)) => Err(format!(
                 "Result of parsing is :\n{}\nDebug result: \n{:#?}\n{}",
                 o,
@@ -36,7 +38,7 @@ pub fn parser<'src>(input: &'src str) -> Result<AST<'src>, String> {
             )),
             None => Ok(o),
         },
-        Err(_) => Err(annotate(input, lexer, "Parsing Error.")),
+        None => Err(annotate(input, lexer, "Parsing Error.")),
     }
 }
 
@@ -66,48 +68,55 @@ pub fn type_check(ast: &mut AST) -> Result<Type, Vec<TypeError>> {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AST<'src> {
     pub top_level: Vec<Decl<'src>>,
-    pub exprs: Arena<'src>,
+    pub expr: ExprId,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Decl<'src> {
     pub name: &'src str,
-    pub args: Vec<(&'src str, Type)>,
-    pub return_type: Type,
+    pub args: Vec<(&'src str, TypeId)>,
+    pub return_type: TypeId,
     pub expr: ExprId,
 }
 
-pub type ExprID = ArenaId;
+pub type ExprId = ArenaId;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ExprNode<'src> {
+    // A variable
+    Var(&'src str),
     // A list of expression that can be viewed as statements
     Seq {
-        fst: ExprID,
-        snd: ExprID,
+        fst: ExprId,
+        snd: ExprId,
     },
     // Array of any expression
     Array {
-        head: ExprID,
-        tail: ExprID,
+        head: ExprId,
+        tail: ExprId,
+    },
+    // Tuple of expression
+    Tuple {
+        head: ExprId,
+        tail: ExprId,
     },
     // Pair of expression
     Pair {
-        fst: ExprID,
-        snd: ExprID,
+        fst: ExprId,
+        snd: ExprId,
     },
     // x or x[y] or x[y][z] ...
     // - `index` represent the first part of the index
     // - `var` represent with which expression you are going to index it
     Index {
-        body: ExprID,
-        index: ExprID,
+        body: ExprId,
+        index: ExprId,
     },
     // Variable(Ident),
     MethodCall {
-        index: ExprID,
+        index: ExprId,
         method: Method,
-        args: ExprID,
+        args: ExprId,
     },
     /// f(x, y, ...)
     /// The builtin ones are :
@@ -115,30 +124,30 @@ pub enum ExprNode<'src> {
     /// - x.append(b)
     /// - x.pop()
     FunCall {
-        name: &'src str,
-        args: ExprID,
+        name: ExprId,
+        args: ExprId,
     },
     /// let [var] = [expr]
     Let {
-        var: &'src str,
-        t: TypeID,
-        expr: ExprID,
+        var: ExprId,
+        t: TypeId,
+        expr: ExprId,
     },
     /// [var] := [expr]
     Assign {
-        index: ExprID,
-        expr: ExprID,
+        index: ExprId,
+        expr: ExprId,
     },
     /// while ([cond]) { [block] }
     While {
-        cond: ExprID,
-        body: ExprID,
+        cond: ExprId,
+        body: ExprId,
     },
     /// if ([cond]) { [yes] } else { [no] }
     If {
-        cond: ExprID,
-        yes: ExprID,
-        no: ExprID,
+        cond: ExprId,
+        yes: ExprId,
+        no: ExprId,
     },
     /// Constants : integer, strings, booleans, unit
     Constant(Constant),
@@ -147,16 +156,16 @@ pub enum ExprNode<'src> {
     ///
     /// Example : x + y
     BinaryOp {
-        lhs: ExprID,
+        lhs: ExprId,
         op: Binary,
-        rhs: ExprID,
+        rhs: ExprId,
     },
     /// [lhs] [op] [rhs]
     /// Unary expression of form : `op lhs`
     ///
     /// Example : !y, -z
     UnaryOp {
-        lhs: ExprID,
+        lhs: ExprId,
         op: Unary,
     },
     /// Empty vector written : `[]`
@@ -190,24 +199,66 @@ pub enum Binary {
     MoreThanEqual,
 }
 
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum Associativity {
+    RightToLeft,
+    LeftToRight,
+}
+impl Binary {
+    /// Precedence of binary operators following the C standard describe
+    /// [here](https://fr.cppreference.com/c/language/operator_precedence)
+    pub const fn precedence(&self) -> usize {
+        match self {
+            Binary::Add => 3,
+            Binary::Sub => 3,
+            Binary::Div => 4,
+            Binary::Mult => 4,
+            Binary::Equal => 1,
+            Binary::NotEqual => 1,
+            Binary::LessThan => 2,
+            Binary::LessThanEqual => 2,
+            Binary::MoreThan => 2,
+            Binary::MoreThanEqual => 2,
+        }
+    }
+    /// Associativity of binary operators following the C standard describe
+    /// [here](https://fr.cppreference.com/c/language/operator_precedence)
+    pub const fn associativity(&self) -> Associativity {
+        match self {
+            Binary::Add
+            | Binary::Sub
+            | Binary::Div
+            | Binary::Mult
+            | Binary::Equal
+            | Binary::NotEqual
+            | Binary::LessThan
+            | Binary::LessThanEqual
+            | Binary::MoreThan
+            | Binary::MoreThanEqual => Associativity::LeftToRight,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Unary {
     Not,
 }
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Constant {
     Int(u64),
+    Float(f32),
     Bool(bool),
-    #[default]
     Unit,
 }
 impl Constant {
     pub(crate) fn get_type(&self) -> Type {
-        match self {
-            Constant::Int(_) => Type::u16(),
-            Constant::Bool(_) => Type::bool(),
-            Constant::Unit => Type::unit(),
-        }
+        todo!()
+        // match self {
+        //     Constant::Int(_) => Type::u16(),
+        //     Constant::Bool(_) => Type::bool(),
+        //     Constant::Float(_) => Type::,
+        //     Constant::Unit => Type::unit(),
+        // }
     }
 }

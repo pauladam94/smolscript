@@ -46,6 +46,16 @@ pub enum Token {
     Char,
     #[token("bool")]
     Bool,
+    #[token("true")]
+    True,
+    #[token("false")]
+    False,
+    #[token("if")]
+    If,
+    #[token("else")]
+    Else,
+    #[token("while")]
+    While,
 
     // SYMBOLS
     #[token("<")]
@@ -81,7 +91,7 @@ pub enum Token {
     #[token("}")]
     BraceClose,
     #[token(".")]
-    Period,
+    Dot,
     #[token("^")]
     Carrot,
     #[token("->")]
@@ -142,6 +152,11 @@ impl Display for Token {
             Token::Float => write!(f, "float"),
             Token::Char => write!(f, "char"),
             Token::Bool => write!(f, "bool"),
+            Token::True => write!(f, "true"),
+            Token::False => write!(f, "false"),
+            Token::If => write!(f, "if"),
+            Token::Else => write!(f, "else"),
+            Token::While => write!(f, "while"),
             Token::LessThan => write!(f, "<"),
             Token::MoreThan => write!(f, ">"),
             Token::MoreThanEqual => write!(f, ">="),
@@ -158,7 +173,7 @@ impl Display for Token {
             Token::BracketClose => write!(f, "]"),
             Token::BraceOpen => write!(f, "{{"),
             Token::BraceClose => write!(f, "}}"),
-            Token::Period => write!(f, "."),
+            Token::Dot => write!(f, "."),
             Token::Carrot => write!(f, "^"),
             Token::Arrow => write!(f, "->"),
             Token::Add => write!(f, "+"),
