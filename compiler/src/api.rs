@@ -1,4 +1,6 @@
-trait SmolAPI {
+use alloc::string::String;
+
+pub trait SmolAPI {
     /// Is widget at `widget_index` hidden ?
     fn is_hidden(&self, widget_index: u16) -> bool;
 
@@ -17,4 +19,6 @@ trait SmolAPI {
     /// Returns the definition of `word` from the dictionary `dict_name`
     /// if the dictionary and the word exist.
     fn get_word_def(&self, dict_name: &str, word: &str) -> Option<&str>;
+
+    fn error(&mut self, message: String, pos: core::ops::Range<usize>);
 }

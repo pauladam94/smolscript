@@ -1,39 +1,65 @@
 use alloc::vec::Vec;
-use core::ops::{Index, IndexMut};
-pub type ArenaId = u16;
+use core::{
+    fmt::{Debug, Formatter, Result},
+    marker::PhantomData,
+    ops::{Index, IndexMut},
+};
 
-pub struct Arena<T> {
-    pub items: Vec<T>,
+/// Implemented by every id type usable with an Arena.
+pub trait ArenaId: Copy {
+    fn from_usize(index: usize) -> Self;
+    fn to_usize(self) -> usize;
 }
 
-impl<T> Arena<T> {
+#[derive(Clone, Default, PartialEq)]
+pub struct Arena<T, Id: ArenaId> {
+    pub items: Vec<T>,
+    // _marker: PhantomData<fn() -> Id>,
+    _marker: PhantomData<Id>,
+}
+
+impl<T, Id: ArenaId> Arena<T, Id> {
     pub fn new() -> Self {
-        Self { items: Vec::new() }
+        Self {
+            items: Vec::new(),
+            _marker: PhantomData,
+        }
     }
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
             items: Vec::with_capacity(capacity),
+            _marker: PhantomData,
         }
     }
-    pub fn alloc(&mut self, node: T) -> ArenaId {
+    pub fn alloc(&mut self, node: T) -> Id {
         self.items.push(node);
-        return (self.items.len() - 1) as u16;
+        return Id::from_usize(self.items.len() - 1);
     }
     pub fn iter(&self) -> () {
         todo!()
     }
 }
 
-impl<T> Index<ArenaId> for Arena<T> {
+impl<T, Id: ArenaId> Index<Id> for Arena<T, Id> {
     type Output = T;
 
-    fn index(&self, index: ArenaId) -> &Self::Output {
-        &self.items[index as usize]
+    fn index(&self, index: Id) -> &Self::Output {
+        &self.items[Id::to_usize(index)]
     }
 }
 
-impl<T> IndexMut<ArenaId> for Arena<T> {
-    fn index_mut(&mut self, index: ArenaId) -> &mut Self::Output {
-        &mut self.items[index as usize]
+impl<T, Id: ArenaId> IndexMut<Id> for Arena<T, Id> {
+    fn index_mut(&mut self, index: Id) -> &mut Self::Output {
+        &mut self.items[Id::to_usize(index)]
+    }
+}
+
+impl<T: Debug, Id: Debug + ArenaId> Debug for Arena<T, Id> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        write!(f, "Arena {{\n")?;
+        for (i, elem) in self.items.iter().enumerate() {
+            writeln!(f, "{:<6}|  {:?}", i, elem)?;
+        }
+        write!(f, "\n}}")
     }
 }

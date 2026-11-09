@@ -1,250 +1,372 @@
-use crate::ast::{AST, BinaryOp, Constant, Decl, Expr, Index, Method, MethodCall, UnaryOp};
-use crate::ast_interpreter::{
-    continuation::Continuation, memory::Memory, state::State, value::Value,
+use crate::{
+    api::SmolAPI,
+    ast::{AST, Constant, ExprId, ExprNode, Method},
+    ast_interpreter::{memory::Memory, value::Value},
 };
-use alloc::boxed::Box;
-use alloc::collections::vec_deque::VecDeque;
-use alloc::vec::Vec;
-use core::fmt::{Display, Formatter};
-use itertools::Itertools;
+use alloc::{collections::VecDeque, vec::Vec};
+
+pub type PC = ExprId;
 
 #[derive(Debug, Clone)]
-pub struct Interpreter {
+pub struct Interpreter<'src, T: SmolAPI> {
     keep_history: bool,
-    history: Vec<(State, Vec<Continuation>, Memory)>,
+    history: Vec<(PC, Memory<'src>)>,
+
+    pub ast: AST<'src>,
     pub step: usize,
-    top_level: VecDeque<Decl>,
-    pub state: State,
-    pub continuation: Vec<Continuation>,
-    pub memory: Memory,
+
+    pub previous_pc: PC,
+    pub program_counter: PC,
+    pub call_stack: Vec<ExprId>,
+    pub values_stack: Vec<Value>,
+
+    pub fun_decl: Vec<ExprId>,
+
+    pub memory: Memory<'src>,
+
+    api: T,
 }
 
-impl Interpreter {
-    pub fn new(ast: AST, keep_history: bool) -> Self {
-        let AST { top_level, expr } = ast;
+impl<'src, T: SmolAPI> Interpreter<'src, T> {
+    pub fn new(ast: AST<'src>, keep_history: bool, api: T) -> Self {
+        let program_counter = ast.expr;
         Self {
             keep_history,
-            step: 0,
-            top_level,
-            state: State::Expr(expr),
-            continuation: Vec::new(),
-            memory: Memory::EMPTY,
             history: Vec::new(),
+
+            ast,
+            step: 0,
+
+            previous_pc: program_counter,
+            program_counter,
+            call_stack: Vec::new(),
+            values_stack: Vec::new(),
+
+            fun_decl: Vec::new(),
+
+            memory: Memory::EMPTY,
+
+            api,
         }
     }
-    pub fn get_value(&self) -> Option<Value> {
-        if self.continuation.is_empty()
-            && let State::Value(value) = &self.state
-        {
-            Some(value.clone())
+    pub fn get_value(&mut self) -> Option<Value> {
+        if self.values_stack.len() == 1 {
+            Some(self.values_stack.pop().unwrap())
         } else {
             None
         }
     }
-}
-
-impl Interpreter {
-    pub fn step_expr(&mut self, expr: Expr) {
-        match expr {
-            Expr::Index(index) => self.state = State::Value(self.memory.get_index_value(index)),
-            Expr::MethodCall(MethodCall {
-                index,
-                method,
-                mut args,
-            }) => match method {
-                Method::Replace => {
-                    let arg = args.pop_front().unwrap_or_else(|| panic!("There should be one argument to a replace method. This should be checked by type checking."));
-                    self.state = State::Value(self.memory.replace_method(index, arg));
-                }
-                Method::Push => {
-                    let arg = args.pop_front().unwrap_or_else(|| panic!("There should be one argument to a push method. This should be checked by type checking."));
-                    self.memory.push_method(index, arg);
-                    self.state = State::Value(Value::Constant(Constant::Unit));
-                }
-                Method::Pop => {
-                    assert!(
-                        args.is_empty(),
-                        "There should be no argument to the 'pop' method. This should be checked by type checking."
-                    );
-                    self.state = State::Value(self.memory.pop_method(index));
-                }
-                Method::Len => {
-                    assert!(
-                        args.is_empty(),
-                        "There should be no argument to the 'len' method. This should be checked by type checking."
-                    );
-                    self.state = State::Value(Value::Constant(Constant::Int(
-                        self.memory.len_method(index) as u64,
-                    )));
-                }
-            },
-            Expr::Call { name, args } => {
-                let fun_decl = self.top_level
-                    .iter()
-                    .find(|decl| decl.name == name)
-                    .unwrap_or_else(|| panic!("'{name}' function not found in the source. This should be checked by type checking."));
-
-                let mut expr = fun_decl.expr.clone();
-
-                for (var_call, (var_arg, t)) in args.iter().zip(fun_decl.args.iter()) {
-                    expr = Expr::Let {
-                        var: *var_arg,
-                        t: t.clone(),
-                        expr: Box::new(Expr::Index({
-                            Index {
-                                var: *var_call,
-                                index: VecDeque::from([]),
-                            }
-                        })),
-                        body: Box::new(expr),
-                    };
-                }
-                self.state = State::Expr(expr)
-            }
-            Expr::While { cond, body } => {
-                self.state = State::Expr(Expr::If {
-                    cond: cond.clone(),
-                    yes: Box::new(Expr::Block(VecDeque::from([
-                        body.as_ref().clone(),
-                        Expr::While {
-                            cond: cond.clone(),
-                            body: body.clone(),
-                        },
-                    ]))),
-                    no: Box::new(Expr::Constant(Constant::Unit)),
-                })
-            }
-            Expr::Let { var, t, expr, body } => {
-                self.state = State::Expr(expr.as_ref().clone());
-                self.continuation
-                    .push(Continuation::LetCont { var, expr: body })
-            }
-            Expr::If { cond, yes, no } => {
-                self.state = State::Expr(cond.as_ref().clone());
-                self.continuation
-                    .push(Continuation::IfCont { yes: yes, no: no })
-            }
-            Expr::Constant(constant) => self.state = State::Value(Value::Constant(constant)),
-            Expr::BinaryOp(BinaryOp { op, lhs, rhs }) => {
-                self.state = State::Value(
-                    self.memory
-                        .get_value(lhs)
-                        .compute_binary(op, self.memory.get_value(rhs)),
-                )
-            }
-            Expr::UnaryOp(UnaryOp { lhs, op }) => {
-                self.state = State::Value(self.memory.get_value(lhs).compute_unary(op))
-            }
-            Expr::EmptyVec => self.state = State::Value(Value::Array(Vec::new())),
-            Expr::Block(mut block) => {
-                if block.len() == 0 {
-                    self.state = State::Value(Value::Constant(Constant::Unit))
-                } else if block.len() == 1 {
-                    let expr = block.pop_front().unwrap();
-                    self.state = State::Expr(expr);
-                } else {
-                    let expr = block.pop_front().unwrap();
-                    self.state = State::Expr(expr);
-                    self.continuation.push(Continuation::SeqCont(block));
-                }
-            }
+    pub fn jump(&mut self, pc: PC) {
+        self.previous_pc = self.program_counter;
+        self.program_counter = pc;
+    }
+    pub fn call(&mut self, pc: PC) {
+        self.call_stack.push(self.program_counter);
+        self.jump(pc);
+    }
+    pub fn ret(&mut self) -> Option<()> {
+        if self.call_stack.is_empty() {
+            None
+        } else {
+            self.previous_pc = self.program_counter;
+            self.program_counter = self.call_stack.pop().unwrap();
+            Some(())
         }
+    }
+
+    fn get_fun(&self, function_name: ExprId) -> ExprId {
+        let ExprNode::Var(function_name) = self.ast.exprs[function_name] else {
+            panic!("Should have been prevented by type checking.")
+        };
+        let function_id = self
+            .fun_decl
+            .iter()
+            .rev()
+            .find(|fun_id| {
+                let ExprNode::Decl { name, .. } = self.ast.exprs[**fun_id] else {
+                    panic!("Should have been prevented by type checking.")
+                };
+                let ExprNode::Var(name) = self.ast.exprs[name] else {
+                    panic!("Should have been prevented by type checking.")
+                };
+                name == function_name
+            })
+            .unwrap();
+        *function_id
     }
 }
 
-impl DoubleEndedIterator for Interpreter {
+impl<T: SmolAPI> DoubleEndedIterator for Interpreter<'_, T> {
     fn next_back(&mut self) -> Option<Self::Item> {
         if !self.keep_history {
             panic!("We choosed to not keep history here.");
         }
-        let (state, continuation, memory) = self.history.pop()?;
-        self.state = state;
-        self.continuation = continuation;
+        let (pc, memory) = self.history.pop()?;
+        self.program_counter = pc;
         self.memory = memory;
         self.step -= 1;
         Some(())
     }
 }
 
-impl Iterator for Interpreter {
+impl<T: SmolAPI> Iterator for Interpreter<'_, T> {
     type Item = ();
 
     // todo break this function into multiple function
     fn next(&mut self) -> Option<()> {
-        if self.keep_history {
-            self.history.push((
-                self.state.clone(),
-                self.continuation.clone(),
-                self.memory.clone(),
-            ));
-        }
         self.step += 1;
-        assert!(self.step < 10000, "Too much step done !!");
-        if let State::Value(_) = self.state
-            && self.continuation.is_empty()
-        {
-            // We finished execution
-            return None;
-        }
-        match self.state.clone() {
-            State::Expr(expr) => {
-                self.step_expr(expr);
-                Some(())
+        use crate::ast::ExprNode::*;
+        match self.ast.exprs[self.program_counter] {
+            ExprNode::Decl { .. } => {
+                self.fun_decl.push(self.program_counter);
+                self.values_stack.push(Value::Constant(Constant::Unit));
+                self.ret()
             }
-            State::Value(value) => {
-                if self.continuation.is_empty() {
-                    None
-                } else {
-                    let cont = self.continuation.pop().unwrap();
-                    match cont {
-                        Continuation::LetCont { var, expr } => {
-                            self.memory.bind_var(var, value);
-                            self.continuation.push(Continuation::DropCont(var));
-                            self.state = State::Expr(*expr);
-                        }
-                        Continuation::SeqCont(block) => {
-                            // assert_eq!(
-                            //     value,
-                            //     Value::Constant(Constant::Unit),
-                            //     "Waiting for a unit value '()' before a block."
-                            // );
-                            self.state = State::Expr(Expr::Block(block));
-                        }
-                        Continuation::DropCont(var) => {
-                            self.memory.drop(var);
-                        }
-                        Continuation::IfCont { yes, no } => {
-                            if let Value::Constant(Constant::Bool(true)) = value {
-                                self.state = State::Expr(*yes)
-                            } else if let Value::Constant(Constant::Bool(false)) = value {
-                                self.state = State::Expr(*no)
-                            } else {
-                                unreachable!(
-                                    "The inside of an if condition must be of type 'bool' but we got '{}'. Type checking should have avoided this.",
-                                    value
-                                )
-                            }
-                        }
+            ExprNode::Var(v) => {
+                self.values_stack.push(self.memory.get_value(v));
+                self.ret()
+            }
+            ExprNode::Seq { fst, snd } => {
+                if self.previous_pc == fst {
+                    self.call(snd);
+                    Some(())
+                } else if self.previous_pc == snd {
+                    let snd_value = self.values_stack.pop().unwrap();
+                    let _fst_value = self.values_stack.pop().unwrap();
+
+                    self.values_stack.push(snd_value);
+                    if let ExprNode::Let { .. } = self.ast.exprs[fst] {
+                        self.memory.pop_var();
+                    } else if let ExprNode::Decl { .. } = self.ast.exprs[fst] {
+                        self.fun_decl.pop();
                     }
+                    self.ret()
+                } else {
+                    self.call(fst);
                     Some(())
                 }
             }
+            ExprNode::Array { head, tail } => {
+                if self.previous_pc == head {
+                    self.call(tail);
+                    Some(())
+                } else if self.previous_pc == tail {
+                    let tail_value = self.values_stack.pop().unwrap();
+                    let head_value = self.values_stack.pop().unwrap();
+
+                    if let Value::Array(mut arr) = tail_value {
+                        arr.push_front(head_value);
+                        self.values_stack.push(Value::Array(arr));
+                    } else {
+                        self.values_stack
+                            .push(Value::Array(VecDeque::from([head_value, tail_value])));
+                    }
+                    self.ret()
+                } else {
+                    self.call(head);
+                    Some(())
+                }
+            }
+            ExprNode::Tuple { head, tail } => {
+                if self.previous_pc == head {
+                    self.call(tail);
+                    Some(())
+                } else if self.previous_pc == tail {
+                    let tail_value = self.values_stack.pop().unwrap();
+                    let head_value = self.values_stack.pop().unwrap();
+
+                    if let Value::Array(mut arr) = tail_value {
+                        arr.push_front(head_value);
+                        self.values_stack.push(Value::Array(arr));
+                    } else {
+                        self.values_stack
+                            .push(Value::Array(VecDeque::from([head_value, tail_value])));
+                    }
+                    self.ret()
+                } else {
+                    self.call(head);
+                    Some(())
+                }
+            }
+            ExprNode::Index { body, index } => {
+                todo!()
+            }
+            ExprNode::MethodCall {
+                index,
+                method,
+                args,
+            } => {
+                if self.previous_pc == index {
+                    self.call(index);
+                    Some(())
+                } else if self.previous_pc == args {
+                    // TODO fix this
+                    let var = ExprId(0);
+                    match method {
+                        Method::Push => {
+                            self.memory.push_method(index, var);
+                        }
+                        Method::Pop => {
+                            self.memory.pop_method(index);
+                        }
+                        Method::Replace => {
+                            self.memory.replace_method(index, var);
+                        }
+                        Method::Len => {
+                            self.memory.len_method(index);
+                        }
+                    };
+                    self.ret()
+                } else {
+                    self.call(args);
+                    Some(())
+                }
+            }
+            ExprNode::FunCall {
+                name,
+                args: args_ptr,
+            } => {
+                let fun_id = self.get_fun(name);
+                let ExprNode::Decl {
+                    name: _,
+                    mut args,
+                    return_type: _,
+                    expr,
+                } = self.ast.exprs[fun_id]
+                else {
+                    panic!("This should be prevented by type checking.")
+                };
+                if self.previous_pc == expr {
+                    while let ExprNode::Tuple { head: _, tail } = self.ast.exprs[args] {
+                        self.memory.pop_var();
+                        args = tail;
+                    }
+                    self.ret()
+                } else if self.previous_pc == args_ptr {
+                    let Value::Array(args_value) = self.values_stack.pop().unwrap() else {
+                        panic!("This should be prevented by type checking.")
+                    };
+                    for value in args_value.into_iter() {
+                        if let ExprNode::Tuple { head, tail } = self.ast.exprs[args]
+                            && let ExprNode::TypeInfo { expr, t: _ } = self.ast.exprs[head]
+                            && let Var(var) = self.ast.exprs[expr]
+                        {
+                            self.memory.bind_var(var, value);
+                            args = tail;
+                        } else {
+                            panic!("This should be prevented by type checking.")
+                        };
+                    }
+                    self.call(expr);
+                    Some(())
+                } else {
+                    self.call(args_ptr);
+                    Some(())
+                }
+            }
+            ExprNode::Let { var, t, expr } => {
+                if self.previous_pc == expr {
+                    let expr_value = self.values_stack.pop().unwrap();
+                    let ExprNode::Var(var) = self.ast.exprs[var] else {
+                        panic!("This should be prevented by type checking.")
+                    };
+                    self.memory.bind_var(var, expr_value);
+                    self.values_stack.push(Value::Constant(Constant::Unit));
+                    self.ret()
+                } else {
+                    self.call(expr);
+                    Some(())
+                }
+            }
+            ExprNode::Assign { index, expr } => todo!(),
+            ExprNode::While { cond, body } => {
+                if self.previous_pc == cond {
+                    let cond_value = self.values_stack.pop().unwrap();
+                    if let Value::Constant(Constant::Bool(true)) = cond_value {
+                        self.call(body);
+                        Some(())
+                    } else if let Value::Constant(Constant::Bool(false)) = cond_value {
+                        self.values_stack.push(Value::Constant(Constant::Unit));
+                        self.ret()
+                    } else {
+                        panic!("Expecting a boolean but got '{}'.", cond_value)
+                    }
+                } else if self.previous_pc == body {
+                    let _ = self.values_stack.pop().unwrap();
+                    self.call(cond);
+                    Some(())
+                } else {
+                    self.call(cond);
+                    Some(())
+                }
+            }
+            ExprNode::If { cond, yes, no } => {
+                if self.previous_pc == cond {
+                    let cond_value = self.values_stack.pop().unwrap();
+                    if let Value::Constant(Constant::Bool(true)) = cond_value {
+                        self.call(yes);
+                        Some(())
+                    } else if let Value::Constant(Constant::Bool(false)) = cond_value {
+                        self.call(no);
+                        Some(())
+                    } else {
+                        panic!("Expecting a boolean but got '{}'.", cond_value)
+                    }
+                } else if self.previous_pc == yes || self.previous_pc == no {
+                    self.ret()
+                } else {
+                    self.call(cond);
+                    Some(())
+                }
+            }
+            ExprNode::Const(constant) => {
+                self.values_stack.push(Value::Constant(constant));
+                self.ret()
+            }
+            ExprNode::BinaryOp { lhs, op, rhs } => {
+                if self.previous_pc == lhs {
+                    self.call(rhs);
+                    Some(())
+                } else if self.previous_pc == rhs {
+                    let rhs_value = self.values_stack.pop().unwrap();
+                    let lhs_value = self.values_stack.pop().unwrap();
+                    self.values_stack
+                        .push(lhs_value.compute_binary(op, rhs_value));
+                    self.ret()
+                } else {
+                    self.call(lhs);
+                    Some(())
+                }
+            }
+            ExprNode::UnaryOp { lhs, op } => {
+                if self.previous_pc == lhs {
+                    let lhs_value = self.values_stack.pop().unwrap();
+                    self.values_stack.push(lhs_value.compute_unary(op));
+                    self.ret()
+                } else {
+                    self.call(lhs);
+                    Some(())
+                }
+            }
+            ExprNode::TypeInfo { expr, .. } => {
+                if self.previous_pc == expr {
+                    self.ret()
+                } else {
+                    self.call(expr);
+                    Some(())
+                }
+            }
+            ExprNode::EmptyTuple => {
+                self.values_stack.push(Value::Array(VecDeque::new()));
+                self.ret()
+            }
+            ExprNode::EmptyVec => {
+                self.values_stack.push(Value::Array(VecDeque::new()));
+                self.ret()
+            }
+            ExprNode::Unknown => {
+                panic!("This should be prevented by type checking.")
+            }
         }
-    }
-}
-
-impl Display for Interpreter {
-    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        writeln!(f, "{}{}{}", "---\n", ">> At Step ", self.step)?;
-        writeln!(f, ">> Current State :\n{}", self.state)?;
-        writeln!(
-            f,
-            "{}{}",
-            ">> Continuations :\n",
-            self.continuation.iter().rev().format("\n :: ")
-        )?;
-        writeln!(f, "{}\n{}", ">> Memory :", self.memory)?;
-
-        Ok(())
     }
 }

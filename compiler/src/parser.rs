@@ -1,25 +1,19 @@
 use crate::{
-    compact_ast::{AST, Associativity, Binary, Constant, Decl, ExprId, ExprNode, Method, Unary},
-    cst::lexer::Token,
+    ast::{AST, Associativity, Binary, Constant, ExprId, ExprNode, Method, Unary},
+    lexer::Token,
     types::{TypeId, TypeNode},
-    utils::arena::Arena,
 };
-use alloc::vec::Vec;
-use logos::Lexer;
-
-pub struct CheckPoint<'src>(Lexer<'src, Token>);
+use logos::{Lexer, Span};
 
 pub struct Parser<'a, 'src> {
-    types: Arena<TypeNode>,
-    exprs: Arena<ExprNode<'src>>,
+    pub ast: AST<'src>,
     lexer: &'a mut Lexer<'src, Token>,
 }
 
 impl<'a, 'src> Parser<'a, 'src> {
     pub fn new(lexer: &'a mut Lexer<'src, Token>) -> Self {
         Self {
-            types: Arena::new(),
-            exprs: Arena::new(),
+            ast: AST::default(),
             lexer,
         }
     }
@@ -29,7 +23,10 @@ impl<'a, 'src> Parser<'a, 'src> {
             Some(Err(_)) | None => None,
         }
     }
-    fn bump(&mut self) -> Option<Token> {
+    pub fn span(&mut self) -> Span {
+        self.lexer.span()
+    }
+    pub fn bump(&mut self) -> Option<Token> {
         match self.lexer.next() {
             Some(Ok(token)) => Some(token),
             Some(Err(_)) | None => None,
@@ -38,41 +35,46 @@ impl<'a, 'src> Parser<'a, 'src> {
     fn slice(&mut self) -> &'src str {
         self.lexer.slice()
     }
-    fn checkpoint(&self) -> CheckPoint<'src> {
-        CheckPoint(self.lexer.clone())
-    }
-    fn restore(&mut self, checkpoint: CheckPoint<'src>) {
-        *self.lexer = checkpoint.0;
-    }
 }
 
 impl<'a, 'src> Parser<'a, 'src> {
-    pub fn parse_str(&mut self, s: &str) -> Option<&'src str> {
+    pub fn parse_str(&mut self, s: &str) -> Option<Span> {
         let _ = self.bump()?;
         let slice = self.slice();
-        (slice == s).then(|| slice)
+        (slice == s).then(|| self.span())
     }
     pub fn parse_token(&mut self, token: Token) -> Option<&'src str> {
         (self.bump()? == token).then(|| self.slice())
     }
+    pub fn parse_type_tuple(&mut self) -> Option<TypeId> {
+        if Token::ParenClose == self.peek()? {
+            let _ = self.parse_str(")").unwrap();
+            return Some(self.ast.types.alloc(TypeNode::Unit));
+        }
+
+        let head = self.parse_type()?;
+
+        if let Token::Comma = self.peek()? {
+            let _ = self.parse_str(",").unwrap();
+        }
+
+        let tail = self.parse_type_tuple()?;
+        Some(self.ast.types.alloc(TypeNode::Tuple { head, tail }))
+    }
     pub fn parse_type(&mut self) -> Option<TypeId> {
-        let _ = self.bump()?;
-        match self.slice() {
-            "u64" => Some(self.types.alloc(TypeNode::U64)),
-            "u32" => Some(self.types.alloc(TypeNode::U32)),
-            "u16" => Some(self.types.alloc(TypeNode::U16)),
-            "u8" => Some(self.types.alloc(TypeNode::U8)),
-            "bool" => Some(self.types.alloc(TypeNode::Bool)),
-            "(" => {
-                // TODO also parse pair types
-                let _ = self.parse_str(")")?;
-                Some(self.types.alloc(TypeNode::Unit))
-            }
-            "[" => {
+        match self.bump()? {
+            Token::U64 => Some(self.ast.types.alloc(TypeNode::U64)),
+            Token::U32 => Some(self.ast.types.alloc(TypeNode::U32)),
+            Token::U16 => Some(self.ast.types.alloc(TypeNode::U16)),
+            Token::U8 => Some(self.ast.types.alloc(TypeNode::U8)),
+            Token::Bool => Some(self.ast.types.alloc(TypeNode::Bool)),
+            Token::ParenOpen => self.parse_type_tuple(),
+            Token::BracketOpen => {
                 let inner_type = self.parse_type()?;
                 let _ = self.parse_str("]")?;
-                Some(self.types.alloc(TypeNode::Array(inner_type)))
+                Some(self.ast.types.alloc(TypeNode::Array(inner_type)))
             }
+            Token::QuestionMark => Some(self.ast.types.alloc(TypeNode::Unknown)),
             _ => None,
         }
     }
@@ -86,19 +88,18 @@ impl<'a, 'src> Parser<'a, 'src> {
             _ => None,
         }
     }
-    pub fn parse_binary(&mut self) -> Option<Binary> {
-        let _ = self.bump()?;
-        match self.slice() {
-            "+" => Some(Binary::Add),
-            "-" => Some(Binary::Sub),
-            "/" => Some(Binary::Div),
-            "*" => Some(Binary::Mult),
-            "==" => Some(Binary::Equal),
-            "!=" => Some(Binary::NotEqual),
-            "<" => Some(Binary::LessThan),
-            "<=" => Some(Binary::LessThanEqual),
-            ">" => Some(Binary::MoreThan),
-            ">=" => Some(Binary::MoreThanEqual),
+    pub fn parse_binary_peek(&mut self) -> Option<Binary> {
+        match self.peek()? {
+            Token::Add => Some(Binary::Add),
+            Token::Sub => Some(Binary::Sub),
+            Token::Div => Some(Binary::Div),
+            Token::Mult => Some(Binary::Mult),
+            Token::EqEq => Some(Binary::Equal),
+            Token::Neq => Some(Binary::NotEqual),
+            Token::LessThan => Some(Binary::LessThan),
+            Token::LessThanEqual => Some(Binary::LessThanEqual),
+            Token::MoreThan => Some(Binary::MoreThan),
+            Token::MoreThanEqual => Some(Binary::MoreThanEqual),
             _ => None,
         }
     }
@@ -112,47 +113,59 @@ impl<'a, 'src> Parser<'a, 'src> {
     pub fn parse_index(&mut self) -> Option<ExprId> {
         todo!()
     }
-    pub fn parse_fun_args(&mut self) -> Option<Vec<(&'src str, TypeId)>> {
-        let mut args = Vec::new();
-
-        loop {
-            let arg = if let Some(arg) = self.parse_token(Token::Identifier) {
-                arg
-            } else {
-                return Some(args);
-            };
-            let _ = self.parse_str(":")?;
-            let t = self.parse_type()?;
-            args.push((arg, t));
-
-            if Token::Comma == self.peek()? {
-                self.bump();
-            } else {
-                return Some(args);
-            }
+    pub fn parse_fun_args(&mut self) -> Option<ExprId> {
+        // If there is no args to parse.
+        if Token::ParenClose == self.peek()? {
+            return Some(self.ast.exprs.alloc(ExprNode::EmptyTuple));
         }
+
+        let arg_name = self.parse_token(Token::Identifier)?;
+        let _ = self.parse_str(":")?;
+        let t = self.parse_type()?;
+        let arg = self.ast.exprs.alloc(ExprNode::Var(arg_name));
+        let head = self.ast.exprs.alloc(ExprNode::TypeInfo { expr: arg, t });
+
+        if Token::Comma == self.peek()? {
+            let _ = self.parse_str(",")?;
+        }
+
+        let tail = self.parse_fun_args()?;
+        Some(self.ast.exprs.alloc(ExprNode::Tuple { head, tail }))
     }
+
     pub fn parse_expr_args(&mut self) -> Option<ExprId> {
-        todo!()
+        // If there is no args to parse.
+        if Token::ParenClose == self.peek()? {
+            return Some(self.ast.exprs.alloc(ExprNode::EmptyTuple));
+        }
+        let head = self.parse_expr()?;
+        if Token::Comma == self.peek()? {
+            let _ = self.parse_str(",")?;
+        }
+        let tail = self.parse_expr_args()?;
+        Some(self.ast.exprs.alloc(ExprNode::Tuple { head, tail }))
     }
     fn parse_primary_expr(&mut self) -> Option<ExprId> {
         match self.bump()? {
-            Token::True => Some(self.exprs.alloc(ExprNode::Constant(Constant::Bool(true)))),
-            Token::False => Some(self.exprs.alloc(ExprNode::Constant(Constant::Bool(false)))),
+            Token::Fn => self.parse_decl(),
+            Token::True => Some(self.ast.exprs.alloc(ExprNode::Const(Constant::Bool(true)))),
+            Token::False => Some(self.ast.exprs.alloc(ExprNode::Const(Constant::Bool(false)))),
             Token::Number => {
                 let slice = self.slice();
                 match slice.parse::<u64>() {
-                    Ok(i) => Some(self.exprs.alloc(ExprNode::Constant(Constant::Int(i)))),
-                    Err(_) => Some(self.exprs.alloc(ExprNode::Constant(Constant::Float(
+                    Ok(i) => Some(self.ast.exprs.alloc(ExprNode::Const(Constant::Int(i)))),
+                    Err(_) => Some(self.ast.exprs.alloc(ExprNode::Const(Constant::Float(
                         slice.parse::<f32>().unwrap(),
                     )))),
                 }
             }
             Token::ParenOpen => {
                 if let Some(Token::ParenClose) = self.peek() {
-                    Some(self.exprs.alloc(ExprNode::Constant(Constant::Unit)))
+                    self.bump();
+                    Some(self.ast.exprs.alloc(ExprNode::Const(Constant::Unit)))
                 } else {
                     let expr = self.parse_expr()?;
+                    // TODO parse Tuple
                     let _ = self.parse_str(")")?;
                     Some(expr)
                 }
@@ -160,7 +173,7 @@ impl<'a, 'src> Parser<'a, 'src> {
             Token::BracketOpen => {
                 // TODO: parse any vector
                 let _ = self.parse_str("]")?;
-                Some(self.exprs.alloc(ExprNode::EmptyVec))
+                Some(self.ast.exprs.alloc(ExprNode::EmptyVec))
             }
             // ex: "let x = 3 + 4"
             // ex: "let x : u64 = 3 + 4"
@@ -172,46 +185,46 @@ impl<'a, 'src> Parser<'a, 'src> {
                     let _ = self.parse_str(":")?;
                     self.parse_type()?
                 } else {
-                    self.types.alloc(TypeNode::Unknown)
+                    self.ast.types.alloc(TypeNode::Unknown)
                 };
 
                 let _ = self.parse_str("=")?;
                 let expr = self.parse_expr()?;
 
-                let var = self.exprs.alloc(ExprNode::Var(var));
-                Some(self.exprs.alloc(ExprNode::Let { var, t, expr }))
+                let var = self.ast.exprs.alloc(ExprNode::Var(var));
+                Some(self.ast.exprs.alloc(ExprNode::Let { var, t, expr }))
             }
             Token::Identifier => {
                 let identifier = self.slice();
-                match self.peek()? {
-                    Token::BracketOpen => {
+                match self.peek() {
+                    Some(Token::BracketOpen) => {
+                        let _ = self.parse_str("[")?;
                         todo!()
                         // Indexing or assign
                     }
-                    Token::Dot => {
+                    Some(Token::Dot) => {
                         // method call for sure
+                        let _ = self.parse_str(".")?;
                         let method = self.parse_method()?;
                         let _ = self.parse_str("(")?;
-
-                        // while let Some() = self.parse_expr() {
-                        // }
-
-                        // TODO
                         let args = self.parse_expr_args()?;
                         let _ = self.parse_str(")")?;
 
-                        let index = self.exprs.alloc(ExprNode::Var(identifier));
-                        Some(self.exprs.alloc(ExprNode::MethodCall {
+                        let index = self.ast.exprs.alloc(ExprNode::Var(identifier));
+                        Some(self.ast.exprs.alloc(ExprNode::MethodCall {
                             index,
                             method,
                             args,
                         }))
                     }
-                    Token::ParenOpen => {
-                        // function call for sure
-                        todo!()
+                    Some(Token::ParenOpen) => {
+                        let _ = self.parse_str("(")?;
+                        let args = self.parse_expr_args()?;
+                        let _ = self.parse_str(")")?;
+                        let name = self.ast.exprs.alloc(ExprNode::Var(identifier));
+                        Some(self.ast.exprs.alloc(ExprNode::FunCall { name, args }))
                     }
-                    _ => Some(self.exprs.alloc(ExprNode::Var(identifier))),
+                    _ => Some(self.ast.exprs.alloc(ExprNode::Var(identifier))),
                 }
                 // more complicated
                 // - assign : '[' ou '='
@@ -234,10 +247,10 @@ impl<'a, 'src> Parser<'a, 'src> {
                     let _ = self.parse_str("}")?;
                     no
                 } else {
-                    self.exprs.alloc(ExprNode::Constant(Constant::Unit))
+                    self.ast.exprs.alloc(ExprNode::Const(Constant::Unit))
                 };
 
-                Some(self.exprs.alloc(ExprNode::If { cond, yes, no }))
+                Some(self.ast.exprs.alloc(ExprNode::If { cond, yes, no }))
             }
             Token::While => {
                 let _ = self.parse_str("(")?;
@@ -247,7 +260,7 @@ impl<'a, 'src> Parser<'a, 'src> {
                 let body = self.parse_block()?;
                 let _ = self.parse_str("}")?;
 
-                Some(self.exprs.alloc(ExprNode::While { cond, body }))
+                Some(self.ast.exprs.alloc(ExprNode::While { cond, body }))
             }
             _ => None,
         }
@@ -275,16 +288,16 @@ impl<'a, 'src> Parser<'a, 'src> {
     ///          lhs := (lhs op rhs)
     ///      return lhs
     fn parse_op_rec(&mut self, mut lhs: ExprId, min_precedence: usize) -> Option<ExprId> {
-        let checkpoint = self.checkpoint();
-        let mut lookahead = if let Some(lookahead) = self.parse_binary() {
+        let mut lookahead = if let Some(lookahead) = self.parse_binary_peek() {
             lookahead
         } else {
             return Some(lhs);
         };
-        self.restore(checkpoint);
 
         while lookahead.precedence() >= min_precedence {
-            let op = self.parse_binary().unwrap();
+            let op = self.parse_binary_peek().unwrap();
+            self.bump();
+
             let mut rhs = if let Some(rhs) = self.parse_primary_expr() {
                 rhs
             } else {
@@ -293,13 +306,11 @@ impl<'a, 'src> Parser<'a, 'src> {
                 // return Ok(lhs);
             };
 
-            let checkpoint = self.checkpoint();
-            lookahead = if let Some(lookahead) = self.parse_binary() {
+            lookahead = if let Some(lookahead) = self.parse_binary_peek() {
                 lookahead
             } else {
-                return Some(self.exprs.alloc(ExprNode::BinaryOp { lhs, op, rhs }));
+                return Some(self.ast.exprs.alloc(ExprNode::BinaryOp { lhs, op, rhs }));
             };
-            self.restore(checkpoint);
 
             while lookahead.precedence() > op.precedence()
                 || (lookahead.precedence() == op.precedence()
@@ -315,15 +326,13 @@ impl<'a, 'src> Parser<'a, 'src> {
                         }),
                 )?;
 
-                let checkpoint = self.checkpoint();
-                lookahead = if let Some(lookahead) = self.parse_binary() {
+                lookahead = if let Some(lookahead) = self.parse_binary_peek() {
                     lookahead
                 } else {
-                    return Some(self.exprs.alloc(ExprNode::BinaryOp { lhs, op, rhs }));
+                    return Some(self.ast.exprs.alloc(ExprNode::BinaryOp { lhs, op, rhs }));
                 };
-                self.restore(checkpoint);
             }
-            lhs = self.exprs.alloc(ExprNode::BinaryOp { lhs, op, rhs })
+            lhs = self.ast.exprs.alloc(ExprNode::BinaryOp { lhs, op, rhs })
         }
         Some(lhs)
     }
@@ -336,23 +345,20 @@ impl<'a, 'src> Parser<'a, 'src> {
     }
     // ex: let a = 4; a + b
     // ex: if (true) { a + b }; x = 2;
-    fn parse_block(&mut self) -> Option<ExprId> {
-        if let Some(expr) = self.parse_expr() {
-            if let Some(_) = self.parse_str(";") {
-                let block = self.parse_block()?;
-                Some(self.exprs.alloc(ExprNode::Seq {
-                    fst: expr,
-                    snd: block,
-                }))
-            } else {
-                Some(expr)
-            }
+    pub fn parse_block(&mut self) -> Option<ExprId> {
+        let expr = self.parse_expr()?;
+        if let Some(Token::SemiColon) = self.peek() {
+            let _ = self.parse_str(";");
+            let block = self.parse_block()?;
+            Some(self.ast.exprs.alloc(ExprNode::Seq {
+                fst: expr,
+                snd: block,
+            }))
         } else {
-            None
+            Some(expr)
         }
     }
-    pub fn parse_decl(&mut self) -> Option<Decl<'src>> {
-        let _ = self.parse_str("fn")?;
+    pub fn parse_decl(&mut self) -> Option<ExprId> {
         let name = self.parse_token(Token::Identifier)?;
 
         let _ = self.parse_str("(")?;
@@ -365,28 +371,25 @@ impl<'a, 'src> Parser<'a, 'src> {
                 let _ = self.parse_str("{")?;
                 return_type
             }
-            Token::BracketOpen => self.types.alloc(TypeNode::Unit),
+            Token::BraceOpen => self.ast.types.alloc(TypeNode::Unit),
             _ => return None,
         };
 
-        let expr = self.parse_block()?;
-        let _ = self.parse_str("}")?;
+        let expr = if let Token::BraceClose = self.peek()? {
+            let _ = self.bump()?;
+            self.ast.exprs.alloc(ExprNode::Const(Constant::Unit))
+        } else {
+            let expr = self.parse_block()?;
+            let _ = self.parse_str("}")?;
+            expr
+        };
 
-        Some(Decl {
+        let name = self.ast.exprs.alloc(ExprNode::Var(name));
+        Some(self.ast.exprs.alloc(ExprNode::Decl {
             name,
             args,
             return_type,
             expr,
-        })
-    }
-
-    pub fn parse_program(&mut self) -> Option<AST<'src>> {
-        let mut top_level = Vec::new();
-        while let Some(Token::Fn) = self.peek() {
-            top_level.push(self.parse_decl()?);
-        }
-
-        let expr = self.parse_expr()?;
-        Some(AST { top_level, expr })
+        }))
     }
 }

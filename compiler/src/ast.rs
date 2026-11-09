@@ -1,63 +1,6 @@
 use crate::{
-    checker::{Checker, type_error::TypeError},
-    cst::CST,
-    types::Type,
+    lexer::Pos, types::{TypeId, TypeNode, TypeView}, utils::arena::{Arena, ArenaId},
 };
-use alloc::{boxed::Box, collections::vec_deque::VecDeque, format, vec::Vec};
-
-/// Module containing all [Display] implementation for the AST
-pub mod formatting;
-
-/// This function converts the CST (concrete syntax tree) to the AST (abstract
-/// syntax tree). It also typechecks the CST that have partial type information
-/// and procude the AST that has complete type information.
-///
-/// Multiple things are done during this translation :
-/// - desugar the syntax of the surface language
-/// - type information is builtin inside the AST
-/// - typechecking is done on the CST which may fail
-/// - informations from the source file (variables names, positions) are removed
-pub fn type_check(cst: &CST) -> Result<(AST, Type), Vec<TypeError>> {
-    let mut checker = Checker::default();
-
-    // Type Checking of all the top level functions
-    let mut top_level = VecDeque::new();
-    let mut errors = Vec::new();
-    for cst_decl in cst.top_level.iter() {
-        match checker.check_decl(cst_decl) {
-            Ok(decl) => top_level.push_back(decl),
-            Err(err) => errors.push(err),
-        }
-    }
-
-    // If there has been error while type checking toplevel functions
-    // then we stop here and return type errors.
-    if !errors.is_empty() {
-        return Err(errors);
-    }
-
-    let (expr, t) = checker.check_expr(&cst.expr).map_err(|e| Vec::from([e]))?;
-
-    if t.is_unknown() {
-        errors.push(TypeError {
-            message: format!(""),
-            pos: todo!(),
-        });
-        return Err(errors);
-    }
-
-    Ok((AST { top_level, expr }, t))
-}
-
-/// This is the identifier type. This is how we are going to represent variable.
-/// We now forget any information about the original parsed file. We are in an
-/// abstract form. Even if identifier are integers they are not to be mistaken with
-/// Debruijn indexes, we are not using Debruijn indexes.
-///
-/// The main constrains we have is, if two [Span] are equal (not in position but
-/// their underlying string) then their identifier is the same.
-#[derive(Debug, Default, PartialEq, Eq, Clone, Copy)]
-pub struct Identifier(pub usize);
 
 /// An [Ast] is an abstract syntax tree.
 /// It represents the language while abtracting the precise syntaxic element
@@ -67,93 +10,155 @@ pub struct Identifier(pub usize);
 /// information inside it that have all been resolved either by :
 /// - input from the user
 /// - or inferred by the type checker
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct AST {
-    pub top_level: VecDeque<Decl>,
-    pub expr: Expr,
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct AST<'src> {
+    pub positions: Arena<Pos, ExprId>,
+    pub exprs: Arena<ExprNode<'src>, ExprId>,
+    pub types: Arena<TypeNode, TypeId>,
+    pub expr: ExprId,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Decl {
-    pub name: Identifier,
-    pub args: Vec<(Identifier, Type)>,
-    pub return_type: Type,
-    pub expr: Expr,
+impl<'src> AST<'src> {
+    pub fn get_pos(&self, id: ExprId) -> Pos {
+        Pos { line: 0, column: 0 }
+    }
+
+    pub fn has_unknown_type(&self) -> bool {
+        // TODO better
+        false
+    }
 }
 
-/// Owned Expression of the AST.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Expr {
-    /// Block of form : `expr; expr... expr; expr`
-    Block(VecDeque<Expr>),
-    /// Let Bindings of form : `let var : t = expr`
+pub struct ExprView<'a, 'src> {
+    pub id: ExprId,
+    pub ast: &'a AST<'src>,
+}
+
+impl<'src> AST<'src> {
+    pub fn show<'a>(&'a self, id: ExprId) -> ExprView<'a, 'src> {
+        ExprView { id, ast: self }
+    }
+    pub fn show_type<'a>(&'a self, id: TypeId) -> TypeView<'a, 'src> {
+        TypeView { id, ast: self }
+    }
+}
+
+#[derive(Default, Clone, Copy, PartialEq)]
+pub struct ExprId(pub u16);
+
+impl ArenaId for ExprId {
+    fn from_usize(index: usize) -> Self {
+        Self(index as u16)
+    }
+
+    fn to_usize(self) -> usize {
+        self.0 as usize
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub enum ExprNode<'src> {
+    // Function Declaration
+    Decl {
+        name: ExprId,
+        args: ExprId,
+        return_type: TypeId,
+        expr: ExprId,
+    },
+    // A variable
+    Var(&'src str),
+    // A list of expression that can be viewed as statements
+    Seq {
+        fst: ExprId,
+        snd: ExprId,
+    },
+    // Array of any expression
+    Array {
+        head: ExprId,
+        tail: ExprId,
+    },
+    // Tuple of expression
+    Tuple {
+        head: ExprId,
+        tail: ExprId,
+    },
+    // x or x[y] or x[y][z] ...
+    // - `body` represent the first part of the index
+    // - `index` represent the last element that is gonna index the body.
+    Index {
+        body: ExprId,
+        index: ExprId,
+    },
+    // Variable(Ident),
+    MethodCall {
+        index: ExprId,
+        method: Method,
+        args: ExprId,
+    },
+    /// f(x, y, ...)
+    /// The builtin ones are :
+    /// - x.replace(b)
+    /// - x.append(b)
+    /// - x.pop()
+    FunCall {
+        name: ExprId,
+        args: ExprId,
+    },
+    /// let [var] = [expr]
     Let {
-        var: Identifier,
-        t: Type,
-        expr: Box<Expr>,
-        body: Box<Expr>,
+        var: ExprId,
+        t: TypeId,
+        expr: ExprId,
     },
-    /// While loop of form : `while ( cond ) { body }`
+    /// [var] := [expr]
+    Assign {
+        index: ExprId,
+        expr: ExprId,
+    },
+    /// while ([cond]) { [block] }
     While {
-        cond: Box<Expr>,
-        body: Box<Expr>,
+        cond: ExprId,
+        body: ExprId,
     },
-    /// If expression of form : `if (cond) { yes } else { no }`
+    /// if ([cond]) { [yes] } else { [no] }
     If {
-        cond: Box<Expr>,
-        yes: Box<Expr>,
-        no: Box<Expr>,
+        cond: ExprId,
+        yes: ExprId,
+        no: ExprId,
     },
-    /// Method call of form : `X.method(arg1, arg2, ...)`
-    MethodCall(MethodCall),
-    /// Function call of form : `name(arg1, arg2, ...)`
-    Call {
-        name: Identifier,
-        args: VecDeque<Identifier>,
-    },
-    /// Indexing `x[y] ... [y]`
-    Index(Index),
+    /// Constants : integer, strings, booleans, unit
+    Const(Constant),
+    /// [lhs] [op] [rhs]
     /// Binary expression of form : `lhs op rhs`
-    BinaryOp(BinaryOp),
+    ///
+    /// Example : x + y
+    BinaryOp {
+        lhs: ExprId,
+        op: Binary,
+        rhs: ExprId,
+    },
+    /// [lhs] [op] [rhs]
     /// Unary expression of form : `op lhs`
-    UnaryOp(UnaryOp),
-    Constant(Constant),
-    /// Empty Vector of form : `[]`
+    ///
+    /// Example : !y, -z
+    UnaryOp {
+        lhs: ExprId,
+        op: Unary,
+    },
+    TypeInfo {
+        expr: ExprId,
+        t: TypeId,
+    },
+    /// End of a list
+    EmptyTuple,
+    /// Empty vector written : `[]`
     EmptyVec,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-/// Method call of form : `X.method(arg1, arg2, ...)`
-pub struct MethodCall {
-    pub index: Index,
-    pub method: Method,
-    pub args: VecDeque<Identifier>,
-}
-
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
-/// Indexing `x[y] ... [y]`
-pub struct Index {
-    pub var: Identifier,
-    pub index: VecDeque<Identifier>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-/// Binary expression of form : `lhs op rhs`
-///
-/// Example : x + y
-pub struct BinaryOp {
-    pub lhs: Identifier,
-    pub op: Binary,
-    pub rhs: Identifier,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-/// Unary expression of form : `op lhs`
-///
-/// Example : !y, -z
-pub struct UnaryOp {
-    pub lhs: Identifier,
-    pub op: Unary,
+    /// Unknown piece of the AST.
+    /// This can be used either to indicate :
+    /// - that a part of the AST has not been parsed properly
+    /// - to indicate a partial type anotation
+    #[default]
+    Unknown,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -178,24 +183,55 @@ pub enum Binary {
     MoreThanEqual,
 }
 
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum Associativity {
+    RightToLeft,
+    LeftToRight,
+}
+impl Binary {
+    /// Precedence of binary operators following the C standard describe
+    /// [here](https://fr.cppreference.com/c/language/operator_precedence)
+    pub const fn precedence(&self) -> usize {
+        match self {
+            Binary::Add => 3,
+            Binary::Sub => 3,
+            Binary::Div => 4,
+            Binary::Mult => 4,
+            Binary::Equal => 1,
+            Binary::NotEqual => 1,
+            Binary::LessThan => 2,
+            Binary::LessThanEqual => 2,
+            Binary::MoreThan => 2,
+            Binary::MoreThanEqual => 2,
+        }
+    }
+    /// Associativity of binary operators following the C standard describe
+    /// [here](https://fr.cppreference.com/c/language/operator_precedence)
+    pub const fn associativity(&self) -> Associativity {
+        match self {
+            Binary::Add
+            | Binary::Sub
+            | Binary::Div
+            | Binary::Mult
+            | Binary::Equal
+            | Binary::NotEqual
+            | Binary::LessThan
+            | Binary::LessThanEqual
+            | Binary::MoreThan
+            | Binary::MoreThanEqual => Associativity::LeftToRight,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Unary {
     Not,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Constant {
     Int(u64),
+    Float(f32),
     Bool(bool),
-    #[default]
     Unit,
-}
-impl Constant {
-    pub(crate) fn get_type(&self) -> Type {
-        match self {
-            Constant::Int(_) => Type::u16(),
-            Constant::Bool(_) => Type::bool(),
-            Constant::Unit => Type::unit(),
-        }
-    }
 }

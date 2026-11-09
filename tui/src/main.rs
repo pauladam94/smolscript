@@ -1,9 +1,6 @@
 use clap::Parser;
 use compiler::{
-    ast::AST,
-    ast::type_check,
-    ast_interpreter::interpreter::Interpreter,
-    cst::{CST, parser},
+    api::SmolAPI, ast::AST, ast_interpreter::interpreter::Interpreter, parser, type_check,
 };
 use ratatui::{
     crossterm::event::{Event, KeyCode, KeyEvent, poll, read},
@@ -13,42 +10,44 @@ use ratatui::{
     widgets::{Block, Paragraph, ScrollbarState, Tabs, Widget},
 };
 use std::time::Duration;
-use tui::{args::Args, input::Input};
+use tui::{args::Args, cli_api::CLI, input::Input};
 
 const TABS_NUMBER: usize = 7;
 const TABS_NAMES: [&str; TABS_NUMBER] = [
     "Source File",
-    "CST",
-    "CST Debug",
     "AST",
     "AST Debug",
+    "AST Type checked",
+    "AST Type checked Debug",
     "C Generated Code",
     "Interpreter",
 ];
 
-pub struct State<'src> {
+pub struct State<'src, T: SmolAPI> {
     scrollbar: ScrollbarState,
     tabs_selection: usize,
     source_file: &'src str,
-    cst: CST<'src>,
-    ast: AST,
-    interpreter: Interpreter,
+    ast: AST<'src>,
+    ast_type_checked: AST<'src>,
+    interpreter: Interpreter<'src, T>,
 }
 
-impl<'src> State<'src> {
-    pub fn new(source_file: &'src str) -> State<'src> {
-        let cst = parser(source_file).unwrap_or_else(|e| {
+impl<'src, T: SmolAPI> State<'src, T> {
+    pub fn new(source_file: &'src str, api: T) -> State<'src, T> {
+        let ast = parser(source_file).unwrap_or_else(|e| {
             panic!("Failed to parse this file '{source_file}'.\nGot this error : \n{e}")
         });
-        let ast = type_check(&cst);
+
+        let mut ast_type_checked = ast.clone();
+        let ast_type = type_check(&mut ast_type_checked);
 
         Self {
             scrollbar: ScrollbarState::new(4000),
             tabs_selection: 0,
             source_file,
-            interpreter: Interpreter::new(ast.clone(), true),
-            cst,
+            interpreter: Interpreter::new(ast.clone(), true, api),
             ast,
+            ast_type_checked,
         }
     }
 
@@ -82,7 +81,7 @@ impl<'src> State<'src> {
     }
 }
 
-impl Widget for &State<'_> {
+impl<T: SmolAPI> Widget for &State<'_, T> {
     fn render(self, area: Rect, buf: &mut Buffer)
     where
         Self: Sized,
@@ -109,16 +108,16 @@ impl Widget for &State<'_> {
             0 => Paragraph::new(format!("{}", self.source_file))
                 .scroll((self.scrollbar.get_position() as u16, 0))
                 .render(middle, buf),
-            1 => Paragraph::new(format!("{}", self.cst))
+            1 => Paragraph::new(format!("{}", self.ast))
                 .scroll((self.scrollbar.get_position() as u16, 0))
                 .render(middle, buf),
-            2 => Paragraph::new(format!("{:#?}", self.cst))
+            2 => Paragraph::new(format!("{:#?}", self.ast))
                 .scroll((self.scrollbar.get_position() as u16, 0))
                 .render(middle, buf),
-            3 => Paragraph::new(format!("{}", self.ast))
+            3 => Paragraph::new(format!("{}", self.ast_type_checked))
                 .scroll((self.scrollbar.get_position() as u16, 0))
                 .render(middle, buf),
-            4 => Paragraph::new(format!("{:#?}", self.ast))
+            4 => Paragraph::new(format!("{:#?}", self.ast_type_checked))
                 .scroll((self.scrollbar.get_position() as u16, 0))
                 .render(middle, buf),
             5 => Paragraph::new(format!("C generated code not implemented yet"))
@@ -143,7 +142,7 @@ impl Widget for &State<'_> {
             TABS_NUMBER => {}
             _ => {}
         }
-        Paragraph::new("[q]       [echap] quit       [<-]/[->] step interpreter       [alt] + [<-]/[->] change tabs       [↑]/[↓] scrool up/down".to_string()).block(
+        Paragraph::new("[q]     [echap] quit    [<-]/[->] step interpreter     [alt] + [<-]/[->] change tabs     [↑]/[↓] scrool up/down".to_string()).block(
             Block::bordered()
             )
             .centered()
@@ -157,7 +156,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
     let contents = std::fs::read_to_string(&args.path)
         .unwrap_or_else(|e| panic!("Error reading '{}'.\n{}", args.path, e));
-    let mut state = State::new(&contents);
+    let api_tui = CLI::new();
+    let mut state = State::new(&contents, api_tui);
 
     ratatui::run(|terminal| {
         terminal.draw(|frame| (&state).render(frame.area(), frame.buffer_mut()))?;

@@ -2,7 +2,7 @@
 fn sort(dico: [u8]) -> [u8] {
 	while (cpt != dico.len()) {
 	}
-}	
+};	
 
 fn _search(t : [u8], x : u8, start : u8, end : u8) {
     if (start == end) {
@@ -17,12 +17,12 @@ fn _search(t : [u8], x : u8, start : u8, end : u8) {
             _search(t, x, start, mid)
 		}
 	}
-}
+};
 
 // Does a dichotomic search on a sorted array of integers.
 fn search(dico: [u8], word: u8) -> [u8] {
 	_search(dico, word, 0, dico.len())
-}
+};
 
 
 let dico = [];

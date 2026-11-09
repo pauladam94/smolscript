@@ -1,6 +1,9 @@
-use crate::counter_alloc::{CounterAlloc, PPBytes};
+use crate::{
+    counter_alloc::{CounterAlloc, PPBytes},
+    test_api::TestAPI,
+};
 use colored::Colorize;
-use compiler::{ast::type_check, ast_interpreter::interpreter::Interpreter, cst::parser};
+use compiler::{ast_interpreter::interpreter::Interpreter, parser, type_check};
 use serde_derive::{Deserialize, Serialize};
 use std::{
     process::{Command, Output},
@@ -8,12 +11,22 @@ use std::{
 };
 use test_each_file::test_each_file;
 
+mod test_api;
+
 mod counter_alloc;
 
 #[global_allocator]
 static ALLOCATER: CounterAlloc = CounterAlloc::new();
 
 test_each_file! { for ["smol", "json"] in "./examples" => full_test }
+
+#[test]
+fn debug_one_file() {
+    full_test([
+        include_str!("./../../examples/fibo_rec.smol"),
+        include_str!("./../../examples/fibo_rec.json"),
+    ])
+}
 
 #[derive(Serialize, Deserialize)]
 enum TestType {
@@ -49,29 +62,38 @@ fn full_test([file, json_file]: [&str; 2]) {
     }
 
     // We get the CST and continue without excepting an error.
-    let cst = file_parse
+    let mut ast = file_parse
         .unwrap_or_else(|err| panic!("Parsing should success but failed with errors :\n{err}"));
 
     // We print the CST to see what it looks like
-    println!("{} : \n{}\n---", "[SUCCESS] Parsing of CST".green(), cst,);
+    println!(
+        "{} : \n{}\n---",
+        "[SUCCESS] Parsing of Initial file ".green(),
+        ast
+    );
 
     // We get the
-    let cst_print = format!("{cst}");
-    let cst_2 = parser(&cst_print).unwrap_or_else(|err| {
-        panic!("Parsing of the printed CST should success but failed with errors :\n{err}")
+    let ast_print = format!("{ast}");
+    let mut ast_2 = parser(&ast_print).unwrap_or_else(|err| {
+        panic!("[ERROR] Parsing of the printed AST should success but failed with errors :\n{err}")
     });
 
-    let ast = type_check(&cst);
-    println!("{} : \n{}\n---", "[SUCCESS] Parsing of AST", ast);
-    let ast_2 = type_check(&cst_2);
+    let ast_type = type_check(&mut ast);
+    println!("{} : \n{}\n---", "[SUCCESS] AST After Type checking :", ast);
+    let ast_2_type = type_check(&mut ast_2);
 
+    // TODO dot not check If Ids are equal -> useless
     if ast != ast_2 {
         panic!(
             "{} Printing then parsing again does not give the (structural) same AST.
->> Second CST :\n{}
->> Second AST : \n{}",
+>> AST :\n{}
+>> AST > print > parse : \n{}
+>> AST (debug) :\n{:#?}
+>> AST > print > parse (debug) : \n{:#?}",
             "[ERROR]".red(),
-            cst_2,
+            ast,
+            ast_2,
+            ast,
             ast_2,
         )
     }
@@ -91,17 +113,21 @@ fn full_test([file, json_file]: [&str; 2]) {
             json_file
         )
     });
-    let expected_cst_output = parser(input_str)
-        .unwrap_or_else(|err| panic!("Parsing should success but failed with errors :\n{err}"));
 
-    let mut expected_interpreter = Interpreter::new(type_check(&expected_cst_output), false);
+    let mut expected_cst_output = parser(input_str).unwrap_or_else(|err| {
+        panic!("Parsing of expected output should success but failed with errors :\n{err}")
+    });
+    // TODO fail on type check
+    let _ = type_check(&mut expected_cst_output);
+
+    let mut expected_interpreter = Interpreter::new(expected_cst_output, false, TestAPI {});
     while let Some(_) = expected_interpreter.next() {}
     let expected_value = expected_interpreter
         .get_value()
         .unwrap_or_else(|| panic!("The output failed during interpretation"));
 
     // File should be interpreted to get a value
-    let mut interpreter = Interpreter::new(type_check(&cst), false);
+    let mut interpreter = Interpreter::new(ast, false, TestAPI {});
     while let Some(_) = interpreter.next() {}
     let value = interpreter.get_value().unwrap_or_else(|| {
         panic!("The execution stopped but it crashed. It didn't end with a value.")

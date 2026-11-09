@@ -15,7 +15,7 @@ fn bubble_sort(l : [u64]) -> [u64] {
 		}
 	}
 	l
-}
+};
 
 let l = [];
 l.push(12);

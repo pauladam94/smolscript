@@ -1,12 +1,12 @@
 use crate::ast::{Binary, Constant, Unary};
-use alloc::{collections::vec_deque::VecDeque, vec::Vec};
+use alloc::collections::vec_deque::VecDeque;
 use core::fmt::{Display, Formatter, Result};
 use itertools::Itertools;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     Constant(Constant),
-    Array(Vec<Value>),
+    Array(VecDeque<Value>),
 }
 
 impl Constant {
@@ -17,6 +17,10 @@ impl Constant {
             (_, Unit, _)
             | (_, _, Unit)
             | (_, Int(_), Bool(_))
+            | (_, Int(_), Float(_))
+            | (_, Float(_), Int(_))
+            | (_, Float(_), Bool(_))
+            | (_, Bool(_), Float(_))
             | (_, Bool(_), Int(_))
             | (Add, Bool(_), _)
             | (Div, Bool(_), _)
@@ -29,13 +33,22 @@ impl Constant {
             (Equal, l, r) => Bool(l == r),
             (NotEqual, l, r) => Bool(l != r),
             (Add, Int(l), Int(r)) => Int(l + r),
+            (Add, Float(l), Float(r)) => Float(l + r),
             (Sub, Int(l), Int(r)) => Int(l - r),
+            (Sub, Float(l), Float(r)) => Float(l - r),
             (Mult, Int(l), Int(r)) => Int(l * r),
             (Div, Int(l), Int(r)) => Int(l / r),
             (LessThan, Int(l), Int(r)) => Bool(l < r),
             (LessThanEqual, Int(l), Int(r)) => Bool(l <= r),
             (MoreThan, Int(l), Int(r)) => Bool(l > r),
             (MoreThanEqual, Int(l), Int(r)) => Bool(l >= r),
+            // TODO
+            (Div, Float(l), Float(r)) => todo!(),
+            (Mult, Float(l), Float(r)) => todo!(),
+            (LessThan, Float(l), Float(r)) => todo!(),
+            (LessThanEqual, Float(l), Float(r)) => todo!(),
+            (MoreThan, Float(l), Float(r)) => todo!(),
+            (MoreThanEqual, Float(l), Float(r)) => todo!(),
         }
     }
 }
@@ -47,7 +60,7 @@ impl Value {
                 Value::Constant(_) => {
                     unreachable!("Pop done on a constant. This should be avoided at type checking.")
                 }
-                Value::Array(values) => values.pop().unwrap(),
+                Value::Array(values) => values.pop_back().unwrap(),
             }
         } else {
             let i = index.pop_front().unwrap();
@@ -89,11 +102,5 @@ impl Display for Value {
             Value::Constant(constant) => write!(f, "{constant}"),
             Value::Array(array) => write!(f, "[{}]", array.iter().format(",")),
         }
-    }
-}
-
-impl Default for Value {
-    fn default() -> Self {
-        Self::Constant(Constant::default())
     }
 }
