@@ -19,6 +19,12 @@ pub struct Arena<T, Id: ArenaId> {
 }
 
 impl<T, Id: ArenaId> Arena<T, Id> {
+    pub fn len(&self) -> usize {
+        self.items.len()
+    }
+}
+
+impl<T, Id: ArenaId> Arena<T, Id> {
     pub fn new() -> Self {
         Self {
             items: Vec::new(),

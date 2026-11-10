@@ -1,21 +1,17 @@
 use crate::ast::{AST, Binary, ExprId, ExprNode, Unary};
 use crate::lexer::Pos;
 use crate::types::{TypeId, TypeNode};
+use crate::utils::error::CompilerError;
 use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
-
-#[derive(Debug, Clone)]
-pub struct TypeError {
-    pub message: String,
-    pub pos: Pos,
-}
+use logos::Span;
 
 #[derive(Debug)]
 pub(crate) struct Checker<'a, 'src> {
     type_env: Vec<(&'src str, TypeId)>,
     pub ast: &'a mut AST<'src>,
-    pub errors: Vec<TypeError>,
+    pub errors: Vec<CompilerError>,
 }
 
 impl<'a, 'src> Checker<'a, 'src> {
@@ -29,8 +25,8 @@ impl<'a, 'src> Checker<'a, 'src> {
 }
 
 impl<'a, 'src> Checker<'a, 'src> {
-    pub fn new_error(&mut self, message: String, pos: Pos) {
-        self.errors.push(TypeError { message, pos })
+    pub fn new_error(&mut self, message: String, span: Span) {
+        self.errors.push(CompilerError { message, span })
     }
     pub fn def_new_var(&mut self, var: &'src str, t: TypeId) {
         self.type_env.push((var, t))
@@ -42,7 +38,7 @@ impl<'a, 'src> Checker<'a, 'src> {
         let ExprNode::Var(var_name) = self.ast.exprs[var] else {
             self.new_error(
                 format!("Expecting a single variable here."),
-                self.ast.get_pos(var),
+                self.ast.get_span(var),
             );
             return None;
         };
@@ -354,14 +350,14 @@ impl<'a, 'src> Checker<'a, 'src> {
     //     }
     // }
 
-    fn check_binop(&self, tlhs: TypeId, op: Binary, trhs: TypeId) -> Result<TypeId, TypeError> {
+    fn check_binop(&self, tlhs: TypeId, op: Binary, trhs: TypeId) -> Result<TypeId, CompilerError> {
         assert_eq!(tlhs, trhs);
         match (tlhs, op, trhs) {
             _ => todo!(),
         }
     }
 
-    fn check_unary_op(&self, tlhs: TypeId, op: Unary) -> Result<TypeId, TypeError> {
+    fn check_unary_op(&self, tlhs: TypeId, op: Unary) -> Result<TypeId, CompilerError> {
         todo!()
     }
 }

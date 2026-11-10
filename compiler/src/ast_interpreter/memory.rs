@@ -1,5 +1,6 @@
-use crate::ast::ExprId;
+use crate::ast::{Constant, ExprId};
 use crate::ast_interpreter::value::Value;
+use alloc::collections::VecDeque;
 use alloc::vec::Vec;
 
 #[derive(Debug, Clone)]
@@ -96,23 +97,19 @@ impl<'src> Memory<'src> {
         // }
     }
 
-    // Replace operation of this form : [index].replace([arg])
-    pub fn replace_method(&mut self, index: ExprId, arg: ExprId) -> Value {
-        todo!()
-        // let Index { var, index } = index;
-        // let arg_value = self.get_value(arg);
-        // let index_values: Vec<Value> = index.iter().map(|y| self.get_value(*y)).collect();
-        // let mut value = self.get_ref_mut_value(var);
-        // for v in index_values {
-        //     if let Value::Array(array) = value
-        //         && let Value::Constant(Constant::Int(i)) = v
-        //     {
-        //         value = &mut array[i as usize];
-        //     } else {
-        //         unreachable!("Indexing inside a non array OR with not an integer.")
-        //     }
-        // }
-        // core::mem::replace(value, arg_value)
+    // Replace operation of this form : var[index].replace(arg)
+    pub fn replace_method(&mut self, var: &'src str, index: VecDeque<Value>, arg: Value) -> Value {
+        let mut value = self.get_ref_mut_value(var);
+        for v in index {
+            if let Value::Array(array) = value
+                && let Value::Constant(Constant::Int(i)) = v
+            {
+                value = &mut array[i as usize];
+            } else {
+                unreachable!("Indexing inside a non array OR with not an integer.")
+            }
+        }
+        core::mem::replace(value, arg)
     }
 
     // Pop operation of this form : [index].pop()
@@ -157,5 +154,3 @@ impl<'src> Memory<'src> {
         // }
     }
 }
-
-

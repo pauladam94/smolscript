@@ -94,6 +94,16 @@ impl<'src, T: SmolAPI> Interpreter<'src, T> {
             .unwrap();
         *function_id
     }
+
+    fn get_var_from_index(&self, mut index: ExprId) -> &'src str {
+        while let ExprNode::Index { body, .. } = self.ast.exprs[index] {
+            index = body;
+        }
+        let ExprNode::Var(v) = self.ast.exprs[index] else {
+            panic!("Should have been prevented by type checking.")
+        };
+        v
+    }
 }
 
 impl<T: SmolAPI> DoubleEndedIterator for Interpreter<'_, T> {
@@ -189,7 +199,34 @@ impl<T: SmolAPI> Iterator for Interpreter<'_, T> {
                 }
             }
             ExprNode::Index { body, index } => {
-                todo!()
+                if let ExprNode::Var(_) = self.ast.exprs[index] {
+                    if self.previous_pc == index {
+                        let index_value = self.values_stack.pop().unwrap();
+                        self.values_stack
+                            .push(Value::Array(VecDeque::from([index_value])));
+                        self.ret()
+                    } else {
+                        self.call(index);
+                        Some(())
+                    }
+                } else {
+                    if self.previous_pc == body {
+                        self.call(index);
+                        Some(())
+                    } else if self.previous_pc == index {
+                        let index_value = self.values_stack.pop().unwrap();
+                        let body_values = self.values_stack.pop().unwrap();
+                        let Value::Array(mut body_values) = body_values else {
+                            panic!("This should be prevented by type checking.")
+                        };
+                        body_values.push_back(index_value);
+                        self.values_stack.push(Value::Array(body_values));
+                        self.ret()
+                    } else {
+                        self.call(body);
+                        Some(())
+                    }
+                }
             }
             ExprNode::MethodCall {
                 index,
@@ -210,7 +247,8 @@ impl<T: SmolAPI> Iterator for Interpreter<'_, T> {
                             self.memory.pop_method(index);
                         }
                         Method::Replace => {
-                            self.memory.replace_method(index, var);
+                            todo!()
+                            // self.memory.replace_method(index, var, todo!());
                         }
                         Method::Len => {
                             self.memory.len_method(index);
@@ -278,7 +316,24 @@ impl<T: SmolAPI> Iterator for Interpreter<'_, T> {
                     Some(())
                 }
             }
-            ExprNode::Assign { index, expr } => todo!(),
+            ExprNode::Assign { index, expr } => {
+                if self.previous_pc == index {
+                    self.call(expr);
+                    Some(())
+                } else if self.previous_pc == expr {
+                    let expr_value = self.values_stack.pop().unwrap();
+                    let index_values = self.values_stack.pop().unwrap();
+                    let Value::Array(index_values) = index_values else {
+                        panic!("This should be prevented by type checking.")
+                    };
+                    let var = self.get_var_from_index(index);
+                    self.memory.replace_method(var, index_values, expr_value);
+                    self.ret()
+                } else {
+                    self.call(index);
+                    Some(())
+                }
+            }
             ExprNode::While { cond, body } => {
                 if self.previous_pc == cond {
                     let cond_value = self.values_stack.pop().unwrap();

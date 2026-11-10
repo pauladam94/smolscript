@@ -8,15 +8,16 @@ extern crate alloc;
 
 use crate::{
     api::SmolAPI,
-    ast::AST,
+    ast::{AST, ExprId},
     ast_interpreter::interpreter::Interpreter,
-    checker::{Checker, TypeError},
+    checker::Checker,
     lexer::Token,
     parser::Parser,
     types::TypeId,
-    utils::annotate::annotate,
+    utils::{annotate::annotate, error::CompilerError},
 };
 use alloc::{format, string::String, vec::Vec};
+use itertools::Itertools;
 use logos::Logos;
 
 /// Differents utilitaries module that are useful throughout the project.
@@ -62,8 +63,10 @@ pub fn interpreter_from_str<'src, T: SmolAPI>(
     let mut lexer = Token::lexer(input);
     let mut parser = Parser::new(&mut lexer);
 
-    let Some(expr) = parser.parse_block() else {
-        api.error(format!(""), parser.span());
+    let Some(expr) = parser.parse_block(Token::BraceClose) else {
+        for error in parser.errors {
+            api.error(format!("{}", error), error.span);
+        }
         return None;
     };
     parser.ast.expr = expr;
@@ -80,13 +83,19 @@ pub fn parser<'src>(input: &'src str) -> Result<AST<'src>, String> {
     let mut lexer = Token::lexer(input);
     let mut parser = Parser::new(&mut lexer);
 
-    let expr = parser.parse_block().ok_or_else(|| {
-        format!(
-            "{}\n - - -\n{:#?}",
-            annotate(input, parser.span(), "Parsing Error."),
-            parser.ast
-        )
-    })?;
+    let Some(expr) = parser.parse_block(Token::BraceClose) else {
+        let errors_title = format!("{}", parser.errors.iter().format(", "));
+        return Err(format!(
+            "{}\n - - -\n{}\n - - -\n{:#?}",
+            annotate(
+                input,
+                parser.span(),
+                &format!("Parser Error : {}.", errors_title)
+            ),
+            parser.ast.show(ExprId((parser.ast.exprs.len() - 1) as u16)),
+            parser.ast,
+        ));
+    };
     parser.ast.expr = expr;
     let current_span = parser.span();
     match parser.bump() {
@@ -102,7 +111,7 @@ pub fn parser<'src>(input: &'src str) -> Result<AST<'src>, String> {
 
 /// This function type checks the [AST]. It modifies the type information of
 /// the [AST] that are unknown with complete type information.
-pub fn type_check(ast: &mut AST) -> Result<TypeId, Vec<TypeError>> {
+pub fn type_check(ast: &mut AST) -> Result<TypeId, Vec<CompilerError>> {
     let expr = ast.expr;
     let mut checker = Checker::new(ast);
     let checker_result = checker.check_expr(expr);

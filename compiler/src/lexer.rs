@@ -55,7 +55,7 @@ impl PartialOrd for Pos {
     }
 }
 
-#[derive(Logos, Debug, PartialEq, Clone)]
+#[derive(Logos, Debug, PartialEq, Clone, Copy)]
 #[logos(extras = LexerState)]
 #[logos(skip(r"[ \t\f]+"))] // Ignore this regex pattern between tokens
 pub enum Token {
@@ -181,58 +181,58 @@ impl<'src> CurrentLexerPos for Lexer<'src, Token> {
     }
 }
 
-// impl Display for Token {
-//     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-//         match self {
-//             Token::NewLine => writeln!(f),
-//             Token::MultiLineComments => write!(f, "/*"),
-//             Token::EndMultiLineComments => write!(f, "*/"),
-//             Token::SingleLineComments => write!(f, "//"),
-//             Token::Fn => write!(f, "fn"),
-//             Token::Return => write!(f, "return"),
-//             Token::Let => write!(f, "let"),
-//             Token::U64 => write!(f, "u64"),
-//             Token::U32 => write!(f, "u32"),
-//             Token::U16 => write!(f, "u16"),
-//             Token::U8 => write!(f, "u8"),
-//             Token::Int => write!(f, "int"),
-//             Token::Float => write!(f, "float"),
-//             Token::Char => write!(f, "char"),
-//             Token::Bool => write!(f, "bool"),
-//             Token::True => write!(f, "true"),
-//             Token::False => write!(f, "false"),
-//             Token::If => write!(f, "if"),
-//             Token::Else => write!(f, "else"),
-//             Token::While => write!(f, "while"),
-//             Token::LessThan => write!(f, "<"),
-//             Token::MoreThan => write!(f, ">"),
-//             Token::MoreThanEqual => write!(f, ">="),
-//             Token::LessThanEqual => write!(f, "<="),
-//             Token::Neq => write!(f, "!="),
-//             Token::EqEq => write!(f, "=="),
-//             Token::Eq => write!(f, "="),
-//             Token::Colon => write!(f, ":"),
-//             Token::SemiColon => write!(f, ";"),
-//             Token::Comma => write!(f, ","),
-//             Token::ParenOpen => write!(f, "("),
-//             Token::ParenClose => write!(f, ")"),
-//             Token::BracketOpen => write!(f, "["),
-//             Token::BracketClose => write!(f, "]"),
-//             Token::BraceOpen => write!(f, "{{"),
-//             Token::BraceClose => write!(f, "}}"),
-//             Token::Dot => write!(f, "."),
-//             Token::Carrot => write!(f, "^"),
-//             Token::Arrow => write!(f, "->"),
-//             Token::QuestionMark => write!(f, "?"),
-//             Token::Add => write!(f, "+"),
-//             Token::Sub => write!(f, "-"),
-//             Token::Mult => write!(f, "*"),
-//             Token::Div => write!(f, "/"),
-//             Token::Number => write!(f, "number"),
-//             Token::Identifier => write!(f, "identifier"),
-//         }
-//     }
-// }
+impl Display for Token {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        match self {
+            Token::NewLine => writeln!(f),
+            Token::MultiLineComments => write!(f, "/*"),
+            Token::EndMultiLineComments => write!(f, "*/"),
+            Token::SingleLineComments => write!(f, "//"),
+            Token::Fn => write!(f, "fn"),
+            Token::Return => write!(f, "return"),
+            Token::Let => write!(f, "let"),
+            Token::U64 => write!(f, "u64"),
+            Token::U32 => write!(f, "u32"),
+            Token::U16 => write!(f, "u16"),
+            Token::U8 => write!(f, "u8"),
+            Token::Int => write!(f, "int"),
+            Token::Float => write!(f, "float"),
+            Token::Char => write!(f, "char"),
+            Token::Bool => write!(f, "bool"),
+            Token::True => write!(f, "true"),
+            Token::False => write!(f, "false"),
+            Token::If => write!(f, "if"),
+            Token::Else => write!(f, "else"),
+            Token::While => write!(f, "while"),
+            Token::LessThan => write!(f, "<"),
+            Token::MoreThan => write!(f, ">"),
+            Token::MoreThanEqual => write!(f, ">="),
+            Token::LessThanEqual => write!(f, "<="),
+            Token::Neq => write!(f, "!="),
+            Token::EqEq => write!(f, "=="),
+            Token::Eq => write!(f, "="),
+            Token::Colon => write!(f, ":"),
+            Token::SemiColon => write!(f, ";"),
+            Token::Comma => write!(f, ","),
+            Token::ParenOpen => write!(f, "("),
+            Token::ParenClose => write!(f, ")"),
+            Token::BracketOpen => write!(f, "["),
+            Token::BracketClose => write!(f, "]"),
+            Token::BraceOpen => write!(f, "{{"),
+            Token::BraceClose => write!(f, "}}"),
+            Token::Dot => write!(f, "."),
+            Token::Carrot => write!(f, "^"),
+            Token::Arrow => write!(f, "->"),
+            Token::QuestionMark => write!(f, "?"),
+            Token::Add => write!(f, "+"),
+            Token::Sub => write!(f, "-"),
+            Token::Mult => write!(f, "*"),
+            Token::Div => write!(f, "/"),
+            Token::Number => write!(f, "number"),
+            Token::Identifier => write!(f, "identifier"),
+        }
+    }
+}
 
 fn skip_multiline_comments(lexer: &mut Lexer<Token>) -> Skip {
     loop {

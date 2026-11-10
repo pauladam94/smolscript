@@ -23,8 +23,8 @@ test_each_file! { for ["smol", "json"] in "./examples" => full_test }
 #[test]
 fn debug_one_file() {
     full_test([
-        include_str!("./../../examples/fibo_rec.smol"),
-        include_str!("./../../examples/fibo_rec.json"),
+        include_str!("./../../examples/fibo_imp.smol"),
+        include_str!("./../../examples/fibo_imp.json"),
     ])
 }
 
@@ -78,11 +78,11 @@ fn full_test([file, json_file]: [&str; 2]) {
         panic!("[ERROR] Parsing of the printed AST should success but failed with errors :\n{err}")
     });
 
+    // TODO be more strict with type_checking
     let ast_type = type_check(&mut ast);
-    println!("{} : \n{}\n---", "[SUCCESS] AST After Type checking :", ast);
     let ast_2_type = type_check(&mut ast_2);
+    println!("{} : \n{}\n---", "[SUCCESS] AST After Type checking :", ast);
 
-    // TODO dot not check If Ids are equal -> useless
     if ast != ast_2 {
         panic!(
             "{} Printing then parsing again does not give the (structural) same AST.

@@ -42,13 +42,12 @@ impl Constant {
             (LessThanEqual, Int(l), Int(r)) => Bool(l <= r),
             (MoreThan, Int(l), Int(r)) => Bool(l > r),
             (MoreThanEqual, Int(l), Int(r)) => Bool(l >= r),
-            // TODO
-            (Div, Float(l), Float(r)) => todo!(),
-            (Mult, Float(l), Float(r)) => todo!(),
-            (LessThan, Float(l), Float(r)) => todo!(),
-            (LessThanEqual, Float(l), Float(r)) => todo!(),
-            (MoreThan, Float(l), Float(r)) => todo!(),
-            (MoreThanEqual, Float(l), Float(r)) => todo!(),
+            (Div, Float(l), Float(r)) => Float(l / r),
+            (Mult, Float(l), Float(r)) => Float(l * r),
+            (LessThan, Float(l), Float(r)) => Bool(l < r),
+            (LessThanEqual, Float(l), Float(r)) => Bool(l <= r),
+            (MoreThan, Float(l), Float(r)) => Bool(l > r),
+            (MoreThanEqual, Float(l), Float(r)) => Bool(l >= r),
         }
     }
 }

@@ -1,6 +1,9 @@
 use crate::{
-    lexer::Pos, types::{TypeId, TypeNode, TypeView}, utils::arena::{Arena, ArenaId},
+    lexer::Pos,
+    types::{TypeId, TypeNode, TypeView},
+    utils::arena::{Arena, ArenaId},
 };
+use logos::Span;
 
 /// An [Ast] is an abstract syntax tree.
 /// It represents the language while abtracting the precise syntaxic element
@@ -19,8 +22,8 @@ pub struct AST<'src> {
 }
 
 impl<'src> AST<'src> {
-    pub fn get_pos(&self, id: ExprId) -> Pos {
-        Pos { line: 0, column: 0 }
+    pub fn get_span(&self, id: ExprId) -> Span {
+        0..0
     }
 
     pub fn has_unknown_type(&self) -> bool {
@@ -65,7 +68,7 @@ pub enum ExprNode<'src> {
         return_type: TypeId,
         expr: ExprId,
     },
-    // A variable
+    // Variable with its name
     Var(&'src str),
     // A list of expression that can be viewed as statements
     Seq {
@@ -89,7 +92,7 @@ pub enum ExprNode<'src> {
         body: ExprId,
         index: ExprId,
     },
-    // Variable(Ident),
+    /// [index].[method](args1, ..., argsn)
     MethodCall {
         index: ExprId,
         method: Method,
@@ -110,7 +113,7 @@ pub enum ExprNode<'src> {
         t: TypeId,
         expr: ExprId,
     },
-    /// [var] := [expr]
+    /// [var] = [expr]
     Assign {
         index: ExprId,
         expr: ExprId,

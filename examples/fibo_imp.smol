@@ -4,9 +4,9 @@ fn fibo(n : u64) -> u64 {
 	let u1 = 1;
 	while (n != 0) {
 		let tmp = u1;
-		u1 := u0 + u1;
-		u0 := tmp;
-		n := n - 1;
+		u1 = u0 + u1;
+		u0 = tmp;
+		n = n - 1;
 	};
 	u0
 };
