@@ -1,34 +1,52 @@
 use crate::{
-    lexer::Pos,
     types::{TypeId, TypeNode, TypeView},
-    utils::arena::{Arena, ArenaId},
+    utils::{
+        arena::{Arena, ArenaId},
+        span::Span,
+    },
 };
-use logos::Span;
 
-/// An [Ast] is an abstract syntax tree.
+/// An [AST] is an abstract syntax tree.
 /// It represents the language while abtracting the precise syntaxic element
 /// of the language.
 ///
-/// This is constructred after type checking and have types
-/// information inside it that have all been resolved either by :
-/// - input from the user
-/// - or inferred by the type checker
-#[derive(Debug, Clone, Default, PartialEq)]
+/// This is first constructed by the parse and then modified by the type
+/// checker by adding
+#[derive(Debug, Clone)]
 pub struct AST<'src> {
-    pub positions: Arena<Pos, ExprId>,
-    pub exprs: Arena<ExprNode<'src>, ExprId>,
+    pub input: &'src str,
+    pub positions: Arena<Span, ExprId>,
+    pub exprs: Arena<ExprNode, ExprId>,
     pub types: Arena<TypeNode, TypeId>,
-    pub expr: ExprId,
+    pub root: ExprId,
+}
+
+impl<'src> PartialEq for AST<'src> {
+    fn eq(&self, other: &Self) -> bool {
+        self.exprs == other.exprs && self.types == other.types && self.root == other.root
+    }
 }
 
 impl<'src> AST<'src> {
+    pub fn new(input: &'src str) -> Self {
+        Self {
+            input,
+            positions: Arena::new(),
+            exprs: Arena::new(),
+            types: Arena::new(),
+            root: ExprId(0),
+        }
+    }
     pub fn get_span(&self, id: ExprId) -> Span {
-        0..0
+        self.positions[id]
     }
 
     pub fn has_unknown_type(&self) -> bool {
         // TODO better
         false
+    }
+    pub(crate) fn get_slice(&self, id: ExprId) -> &'src str {
+        self.input.get(self.get_span(id)).unwrap()
     }
 }
 
@@ -60,7 +78,7 @@ impl ArenaId for ExprId {
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
-pub enum ExprNode<'src> {
+pub enum ExprNode {
     // Function Declaration
     Decl {
         name: ExprId,
@@ -69,7 +87,7 @@ pub enum ExprNode<'src> {
         expr: ExprId,
     },
     // Variable with its name
-    Var(&'src str),
+    Var,
     // A list of expression that can be viewed as statements
     Seq {
         fst: ExprId,
@@ -85,6 +103,10 @@ pub enum ExprNode<'src> {
         head: ExprId,
         tail: ExprId,
     },
+    FieldAccess {
+        body: ExprId,
+        field: ExprId,
+    },
     // x or x[y] or x[y][z] ...
     // - `body` represent the first part of the index
     // - `index` represent the last element that is gonna index the body.
@@ -96,6 +118,10 @@ pub enum ExprNode<'src> {
     MethodCall {
         index: ExprId,
         method: Method,
+        args: ExprId,
+    },
+    APICall {
+        name: ExprId,
         args: ExprId,
     },
     /// f(x, y, ...)
@@ -129,12 +155,17 @@ pub enum ExprNode<'src> {
         yes: ExprId,
         no: ExprId,
     },
+    /// Text literal between double quotes.
+    /// In other programming languages this is called a string.
+    ///
+    /// ex: "hello world"
+    Text,
     /// Constants : integer, strings, booleans, unit
     Const(Constant),
     /// [lhs] [op] [rhs]
     /// Binary expression of form : `lhs op rhs`
     ///
-    /// Example : x + y
+    /// ex: x + y
     BinaryOp {
         lhs: ExprId,
         op: Binary,
@@ -143,23 +174,30 @@ pub enum ExprNode<'src> {
     /// [lhs] [op] [rhs]
     /// Unary expression of form : `op lhs`
     ///
-    /// Example : !y, -z
+    /// ex: !y, -z
     UnaryOp {
         lhs: ExprId,
         op: Unary,
     },
+    /// Type indication of an expression.
+    ///
+    /// ex: x : bool
     TypeInfo {
         expr: ExprId,
         t: TypeId,
     },
     /// End of a list
     EmptyTuple,
-    /// Empty vector written : `[]`
+    /// Empty vector
+    ///
+    /// ex: []
     EmptyVec,
     /// Unknown piece of the AST.
     /// This can be used either to indicate :
     /// - that a part of the AST has not been parsed properly
     /// - to indicate a partial type anotation
+    ///
+    /// ex: ?
     #[default]
     Unknown,
 }
@@ -233,7 +271,7 @@ pub enum Unary {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Constant {
-    Int(u64),
+    Int(u32),
     Float(f32),
     Bool(bool),
     Unit,

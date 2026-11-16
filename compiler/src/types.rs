@@ -32,6 +32,7 @@ pub enum TypeNode {
         return_type: TypeId,
     },
     Unknown,
+    String,
 }
 
 pub struct TypeView<'a, 'src> {

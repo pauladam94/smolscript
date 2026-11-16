@@ -2,10 +2,11 @@ use crate::{
     ast::{AST, Associativity, Binary, Constant, ExprId, ExprNode, Method, Unary},
     lexer::Token,
     types::{TypeId, TypeNode},
-    utils::error::CompilerError,
+    utils::{error::CompilerError, span::Span},
 };
+use ExprNode::*;
 use alloc::{format, string::String, vec::Vec};
-use logos::{Lexer, Span};
+use logos::Lexer;
 
 pub struct Parser<'a, 'src> {
     pub ast: AST<'src>,
@@ -16,14 +17,26 @@ pub struct Parser<'a, 'src> {
 impl<'a, 'src> Parser<'a, 'src> {
     pub fn new(lexer: &'a mut Lexer<'src, Token>) -> Self {
         Self {
-            ast: AST::default(),
+            ast: AST::new(lexer.source()),
             lexer,
             errors: Vec::new(),
         }
     }
-    pub fn new_error(&mut self, message: String, span: Span) {
-        self.errors.push(CompilerError { message, span })
+    pub fn alloc_type(&mut self, t: TypeNode) -> TypeId {
+        self.ast.types.alloc(t)
     }
+    pub fn alloc_expr(&mut self, expr: ExprNode, span: Span) -> ExprId {
+        self.ast.positions.alloc(span);
+        self.ast.exprs.alloc(expr)
+    }
+
+    pub fn new_error(&mut self, message: String, span: Span) {
+        self.errors.push(CompilerError {
+            message: format!("[Parser Error]: {}", message),
+            span,
+        })
+    }
+
     pub fn eat(&mut self, token: Token) -> bool {
         if Some(token) == self.peek() {
             self.bump();
@@ -32,24 +45,33 @@ impl<'a, 'src> Parser<'a, 'src> {
             false
         }
     }
+
     fn peek(&self) -> Option<Token> {
         match self.lexer.clone().next() {
             Some(Ok(token)) => Some(token),
             Some(Err(_)) | None => None,
         }
     }
-    pub fn span(&self) -> Span {
-        self.lexer.span()
-    }
+
     pub fn bump(&mut self) -> Option<Token> {
         match self.lexer.next() {
             Some(Ok(token)) => Some(token),
             Some(Err(_)) | None => None,
         }
     }
+
+    pub fn span(&self) -> Span {
+        let lexer_span = self.lexer.span();
+        core::range::Range {
+            start: lexer_span.start,
+            end: lexer_span.end,
+        }
+    }
+
     fn slice(&self) -> &'src str {
         self.lexer.slice()
     }
+
     pub fn expect(&mut self, token: Token) -> Option<Span> {
         let next_token = self.bump()?;
         let span = self.span();
@@ -63,6 +85,7 @@ impl<'a, 'src> Parser<'a, 'src> {
             None
         }
     }
+
     // pub fn parse_str(&mut self, s: &str) -> Option<Span> {
     //     let _ = self.bump()?;
     //     let slice = self.slice();
@@ -74,20 +97,19 @@ impl<'a, 'src> Parser<'a, 'src> {
     //         None
     //     }
     // }
-    pub fn parse_token(&mut self, token: Token) -> Option<&'src str> {
+    pub fn parse_token(&mut self, token: Token) -> Option<Span> {
         let next_token = self.bump()?;
-        let slice = self.slice();
         if next_token == token {
-            Some(slice)
+            Some(self.span())
         } else {
-            let span = self.span();
             self.new_error(
                 format!("expecting token '{}' but got '{}'", token, next_token),
-                span,
+                self.span(),
             );
             None
         }
     }
+
     pub fn parse_type_tuple(&mut self) -> Option<TypeId> {
         if self.eat(Token::ParenClose) {
             return Some(self.ast.types.alloc(TypeNode::Unit));
@@ -100,6 +122,7 @@ impl<'a, 'src> Parser<'a, 'src> {
         let tail = self.parse_type_tuple()?;
         Some(self.ast.types.alloc(TypeNode::Tuple { head, tail }))
     }
+
     pub fn parse_type(&mut self) -> Option<TypeId> {
         match self.bump() {
             Some(Token::U64) => Some(self.ast.types.alloc(TypeNode::U64)),
@@ -126,6 +149,7 @@ impl<'a, 'src> Parser<'a, 'src> {
             }
         }
     }
+
     pub fn parse_method(&mut self) -> Option<Method> {
         let _ = self.bump()?;
         match self.slice() {
@@ -140,6 +164,7 @@ impl<'a, 'src> Parser<'a, 'src> {
             }
         }
     }
+
     pub fn parse_binary_peek(&mut self) -> Option<Binary> {
         match self.peek()? {
             Token::Add => Some(Binary::Add),
@@ -155,6 +180,8 @@ impl<'a, 'src> Parser<'a, 'src> {
             _ => None,
         }
     }
+
+    // TODO : use this function
     pub fn unary_parser(&mut self) -> Option<Unary> {
         let _ = self.bump()?;
         match self.slice() {
@@ -162,43 +189,56 @@ impl<'a, 'src> Parser<'a, 'src> {
             _ => None,
         }
     }
+
     pub fn parse_index(&mut self, lhs: ExprId) -> Option<ExprId> {
         if self.eat(Token::BracketOpen) {
+            let span = self.span();
             let index = self.parse_expr()?;
             self.expect(Token::BracketClose)?;
-            let index = self.ast.exprs.alloc(ExprNode::Index { body: lhs, index });
+            let index = self.alloc_expr(Index { body: lhs, index }, span);
             self.parse_index(index)
         } else {
             Some(lhs)
         }
     }
+
+    // TODO use parse_list_expr instead
+    //
     pub fn parse_fun_args(&mut self, end: Token) -> Option<ExprId> {
-        // If there is no args to parse.
-        if end == self.peek()? {
-            return Some(self.ast.exprs.alloc(ExprNode::EmptyTuple));
+        if self.eat(end) {
+            return Some(self.alloc_expr(EmptyTuple, self.span()));
         }
 
-        let arg_name = self.parse_token(Token::Identifier)?;
+        let span_name = self.parse_token(Token::Identifier)?;
+
         self.expect(Token::Colon)?;
+        let span_colon = self.span();
+
         let t = self.parse_type()?;
-        let arg = self.ast.exprs.alloc(ExprNode::Var(arg_name));
-        let head = self.ast.exprs.alloc(ExprNode::TypeInfo { expr: arg, t });
+        let arg = self.alloc_expr(Var, span_name);
+        let head = self.alloc_expr(TypeInfo { expr: arg, t }, span_colon);
 
         self.eat(Token::Comma);
+        let span_comma = self.span();
 
         let tail = self.parse_fun_args(end)?;
-        Some(self.ast.exprs.alloc(ExprNode::Tuple { head, tail }))
+        Some(self.alloc_expr(Tuple { head, tail }, span_comma))
     }
 
-    pub fn parse_expr_args(&mut self, separator: Token, end: Token) -> Option<ExprId> {
-        // If there is no args to parse.
-        if end == self.peek()? {
-            return Some(self.ast.exprs.alloc(ExprNode::EmptyTuple));
+    // Parse a list of expression given a separator and and an end token.
+    // Typically used to parse function call or tuples.
+    //
+    // ex: x, 2, 3 + 4)
+    // ex: x; if(x){true} else {false}; "hey"]
+    pub fn parse_list_expr(&mut self, separator: Token, end: Token) -> Option<ExprId> {
+        if self.eat(end) {
+            return Some(self.alloc_expr(EmptyTuple, self.span()));
         }
         let head = self.parse_expr()?;
         self.eat(separator);
-        let tail = self.parse_expr_args(separator, end)?;
-        Some(self.ast.exprs.alloc(ExprNode::Tuple { head, tail }))
+        let span_separator = self.span();
+        let tail = self.parse_list_expr(separator, end)?;
+        Some(self.alloc_expr(Tuple { head, tail }, span_separator))
     }
 
     fn parse_cond_block(&mut self) -> Option<(ExprId, ExprId)> {
@@ -210,30 +250,41 @@ impl<'a, 'src> Parser<'a, 'src> {
         self.expect(Token::BraceClose)?;
         Some((cond, body))
     }
+
     fn parse_primary_expr(&mut self) -> Option<ExprId> {
         match self.bump() {
+            // ex: fn test() {}
+            // ex:
             Some(Token::Fn) => self.parse_decl(),
-            Some(Token::True) => Some(self.ast.exprs.alloc(ExprNode::Const(Constant::Bool(true)))),
-            Some(Token::False) => {
-                Some(self.ast.exprs.alloc(ExprNode::Const(Constant::Bool(false))))
-            }
+            // ex: true
+            Some(Token::True) => Some(self.alloc_expr(Const(Constant::Bool(true)), self.span())),
+            // ex: false
+            Some(Token::False) => Some(self.alloc_expr(Const(Constant::Bool(false)), self.span())),
+            // ex: 2.3
+            // ex: 234
             Some(Token::Number) => {
                 let slice = self.slice();
-                let constant = if let Ok(i) = slice.parse::<u64>() {
+                let span = self.span();
+                let constant = if let Ok(i) = slice.parse::<u32>() {
                     Constant::Int(i)
                 } else if let Ok(f) = slice.parse::<f32>() {
                     Constant::Float(f)
                 } else {
-                    let span = self.span();
                     self.new_error(format!("invalid number '{}'", slice), span);
                     return None;
                 };
-                Some(self.ast.exprs.alloc(ExprNode::Const(constant)))
+                Some(self.alloc_expr(Const(constant), span))
             }
+            // ex: "hello world"
+            Some(Token::Text) => Some(self.alloc_expr(Text, self.span())),
+            // ex: ()
+            // ex: (x + 2)
+            // ex: ((!y == false))
+            // TODO ex: (x, y, 2 + 3, "hey")
             Some(Token::ParenOpen) => {
-                if let Some(Token::ParenClose) = self.peek() {
-                    self.bump();
-                    Some(self.ast.exprs.alloc(ExprNode::Const(Constant::Unit)))
+                if self.eat(Token::ParenClose) {
+                    let span = self.span();
+                    Some(self.alloc_expr(Const(Constant::Unit), span))
                 } else {
                     let expr = self.parse_expr()?;
                     // TODO parse Tuple
@@ -241,16 +292,18 @@ impl<'a, 'src> Parser<'a, 'src> {
                     Some(expr)
                 }
             }
+            // ex: []
+            // TODO ex: [x, 2 + 3, while(x == 12) {}]
             Some(Token::BracketOpen) => {
                 // TODO: parse any vector
                 self.expect(Token::BracketClose)?;
-                Some(self.ast.exprs.alloc(ExprNode::EmptyVec))
+                Some(self.alloc_expr(EmptyVec, self.span()))
             }
             // ex: "let x = 3 + 4"
             // ex: "let x : u64 = 3 + 4"
             Some(Token::Let) => {
-                let var = self.parse_token(Token::Identifier)?;
-                let var = self.ast.exprs.alloc(ExprNode::Var(var));
+                let span = self.parse_token(Token::Identifier)?;
+                let var = self.alloc_expr(Var, span);
 
                 // Optional type annotation
 
@@ -260,68 +313,64 @@ impl<'a, 'src> Parser<'a, 'src> {
                     self.ast.types.alloc(TypeNode::Unknown)
                 };
 
-                self.expect(Token::Eq)?;
+                let span_eq = self.expect(Token::Eq)?;
                 let expr = self.parse_expr()?;
 
-                Some(self.ast.exprs.alloc(ExprNode::Let { var, t, expr }))
+                Some(self.alloc_expr(Let { var, t, expr }, span_eq))
             }
             // ex: x[3]
             // ex: x[y + 2] = 12
             // ex: z.len()
             // ex: f(x, y, 12)
             Some(Token::Identifier) => {
-                let slice = self.slice();
-                let ident = self.ast.exprs.alloc(ExprNode::Var(slice));
+                let ident = self.alloc_expr(Var, self.span());
                 match self.peek() {
                     // Indexing or Assign
                     Some(Token::BracketOpen) => {
                         let index = self.parse_index(ident)?;
                         if self.eat(Token::Eq) {
+                            let eq_span = self.span();
                             let expr = self.parse_expr()?;
-                            Some(self.ast.exprs.alloc(ExprNode::Assign { index, expr }))
+                            Some(self.alloc_expr(Assign { index, expr }, eq_span))
                         } else {
                             Some(index)
                         }
                     }
                     // Method call or Field access
                     Some(Token::Dot) => {
-                        self.expect(Token::Dot)?;
+                        let span_dot = self.expect(Token::Dot)?;
                         let method = self.parse_method()?;
                         self.expect(Token::ParenOpen)?;
-                        let args = self.parse_expr_args(Token::Comma, Token::ParenClose)?;
-                        self.expect(Token::ParenClose)?;
+                        let args = self.parse_list_expr(Token::Comma, Token::ParenClose)?;
 
-                        Some(self.ast.exprs.alloc(ExprNode::MethodCall {
-                            index: ident,
-                            method,
-                            args,
-                        }))
+                        Some(self.alloc_expr(
+                            MethodCall {
+                                index: ident,
+                                method,
+                                args,
+                            },
+                            span_dot,
+                        ))
                     }
                     // Function Call
                     Some(Token::ParenOpen) => {
                         self.expect(Token::ParenOpen)?;
-                        let args = self.parse_expr_args(Token::Comma, Token::ParenClose)?;
-                        self.expect(Token::ParenClose)?;
-                        Some(
-                            self.ast
-                                .exprs
-                                .alloc(ExprNode::FunCall { name: ident, args }),
-                        )
+                        let paren_span = self.span();
+                        let args = self.parse_list_expr(Token::Comma, Token::ParenClose)?;
+                        Some(self.alloc_expr(FunCall { name: ident, args }, paren_span))
                     }
                     Some(Token::Eq) => {
                         self.expect(Token::Eq)?;
+                        let eq_span = self.span();
                         let expr = self.parse_expr()?;
-                        Some(
-                            self.ast
-                                .exprs
-                                .alloc(ExprNode::Assign { index: ident, expr }),
-                        )
+                        Some(self.alloc_expr(Assign { index: ident, expr }, eq_span))
                     }
                     // Simple Identifier
                     _ => Some(ident),
                 }
             }
             Some(Token::If) => {
+                let if_span = self.span();
                 let (cond, yes) = self.parse_cond_block()?;
                 let no = if self.eat(Token::Else) {
                     self.expect(Token::BraceOpen)?;
@@ -329,14 +378,15 @@ impl<'a, 'src> Parser<'a, 'src> {
                     self.expect(Token::BraceClose)?;
                     no
                 } else {
-                    self.ast.exprs.alloc(ExprNode::Const(Constant::Unit))
+                    self.alloc_expr(Const(Constant::Unit), self.span())
                 };
 
-                Some(self.ast.exprs.alloc(ExprNode::If { cond, yes, no }))
+                Some(self.alloc_expr(If { cond, yes, no }, if_span))
             }
             Some(Token::While) => {
+                let while_span = self.span();
                 let (cond, body) = self.parse_cond_block()?;
-                Some(self.ast.exprs.alloc(ExprNode::While { cond, body }))
+                Some(self.alloc_expr(While { cond, body }, while_span))
             }
             Some(token) => {
                 let span = self.span();
@@ -354,91 +404,26 @@ impl<'a, 'src> Parser<'a, 'src> {
         }
     }
 
-    /// Other version of the pratt parsing:
-    ///
-    ///
-    // fn parse_expr_bp(&mut self, min_prec: usize) -> Option<ExprId> {
-    //     let mut lhs = self.parse_primary_expr()?;
-    //     while let Some(op) = self.parse_binary_peek() {
-    //         if op.precedence() < min_prec { break; }
-    //         self.bump();
-    //         let next_min = match op.associativity() {
-    //             Associativity::LeftToRight => op.precedence() + 1,
-    //             Associativity::RightToLeft => op.precedence(),
-    //         };
-    //         let rhs = self.parse_expr_bp(next_min)?;
-    //         lhs = self.ast.exprs.alloc(ExprNode::BinaryOp { lhs, op, rhs });
-    //     }
-    //     Some(lhs)
-    // }
-
-    // fn parse_expr(&mut self) -> Option<ExprId> {
-    //     self.parse_expr_bp(0)
-    // }
-
     /// Pratt Parsing Algorithm following the pseudo code in this
     /// [wikipedia page](https://en.wikipedia.org/wiki/Operator-precedence_parser)
     ///
-    /// Here the algorithm presented in the wikipedia article :
-    ///  parse_expression()
-    ///      return parse_expression_1(parse_primary(), 0)
-    ///
-    ///  parse_expression_1(lhs, min_precedence)
-    ///      lookahead := peek_next_token()
-    ///      while lookahead precedence is >= min_precedence
-    ///          op := lookahead
-    ///          advance to next token
-    ///          rhs := parse_primary ()
-    ///          lookahead := peek_next_token()
-    ///          while lookahead is a binary operator whose precedence is greater
-    ///                   than op's, or a right-associative operator
-    ///                   whose precedence is equal to op's
-    ///              rhs := parse_expression_1 (rhs, precedence of op + (1 if lookahead precedence is greater, else 0))
-    ///              lookahead := peek next token
-    ///          lhs := (lhs op rhs)
-    ///      return lhs
-    fn parse_op_rec(&mut self, mut lhs: ExprId, min_precedence: usize) -> Option<ExprId> {
-        let Some(mut lookahead) = self.parse_binary_peek() else {
-            return Some(lhs);
-        };
-
-        while lookahead.precedence() >= min_precedence {
-            let op = self.parse_binary_peek().unwrap();
-            self.bump();
-
-            let Some(mut rhs) = self.parse_primary_expr() else {
-                // -> fail gracefully
-                // return Ok(lhs);
-                todo!()
-            };
-
-            lookahead = if let Some(lookahead) = self.parse_binary_peek() {
-                lookahead
-            } else {
-                return Some(self.ast.exprs.alloc(ExprNode::BinaryOp { lhs, op, rhs }));
-            };
-
-            while lookahead.precedence() > op.precedence()
-                || (lookahead.precedence() == op.precedence()
-                    && lookahead.associativity() == Associativity::RightToLeft)
-            {
-                rhs = self.parse_op_rec(
-                    rhs,
-                    op.precedence()
-                        + (if lookahead.precedence() > op.precedence() {
-                            1
-                        } else {
-                            0
-                        }),
-                )?;
-
-                lookahead = if let Some(lookahead) = self.parse_binary_peek() {
-                    lookahead
-                } else {
-                    return Some(self.ast.exprs.alloc(ExprNode::BinaryOp { lhs, op, rhs }));
-                };
+    /// ex: x + 12
+    /// ex: if (true) { 2 } else { 4 } == 5
+    /// ex: x == 5 * 3
+    fn parse_expr_bp(&mut self, min_prec: usize) -> Option<ExprId> {
+        let mut lhs = self.parse_primary_expr()?;
+        while let Some(op) = self.parse_binary_peek() {
+            if op.precedence() < min_prec {
+                break;
             }
-            lhs = self.ast.exprs.alloc(ExprNode::BinaryOp { lhs, op, rhs })
+            self.bump();
+            let binary_span = self.span();
+            let next_min = match op.associativity() {
+                Associativity::LeftToRight => op.precedence() + 1,
+                Associativity::RightToLeft => op.precedence(),
+            };
+            let rhs = self.parse_expr_bp(next_min)?;
+            lhs = self.alloc_expr(BinaryOp { lhs, op, rhs }, binary_span);
         }
         Some(lhs)
     }
@@ -446,32 +431,36 @@ impl<'a, 'src> Parser<'a, 'src> {
     // ex: x + 2
     // ex: x[12] = if (x) { 42 } else { 21 }
     fn parse_expr(&mut self) -> Option<ExprId> {
-        let lhs = self.parse_primary_expr()?;
-        self.parse_op_rec(lhs, 0)
+        self.parse_expr_bp(0)
     }
+
     // ex: let a = 4; a + b
     // ex: if (true) { a + b }; x = 2;
     pub fn parse_block(&mut self, end: Token) -> Option<ExprId> {
         if end == self.peek()? {
-            return Some(self.ast.exprs.alloc(ExprNode::Const(Constant::Unit)));
+            return Some(self.alloc_expr(Const(Constant::Unit), self.span()));
         }
         let expr = self.parse_expr()?;
         if self.eat(Token::SemiColon) {
+            let semicolon_span = self.span();
             let block = self.parse_block(end)?;
-            Some(self.ast.exprs.alloc(ExprNode::Seq {
-                fst: expr,
-                snd: block,
-            }))
+            Some(self.alloc_expr(
+                Seq {
+                    fst: expr,
+                    snd: block,
+                },
+                semicolon_span,
+            ))
         } else {
             Some(expr)
         }
     }
     pub fn parse_decl(&mut self) -> Option<ExprId> {
-        let name = self.parse_token(Token::Identifier)?;
+        let fn_span = self.span();
+        let name_span = self.parse_token(Token::Identifier)?;
 
         self.expect(Token::ParenOpen)?;
         let args = self.parse_fun_args(Token::ParenClose)?;
-        self.expect(Token::ParenClose)?;
 
         let return_type = match self.bump()? {
             Token::Arrow => {
@@ -484,19 +473,22 @@ impl<'a, 'src> Parser<'a, 'src> {
         };
 
         let expr = if self.eat(Token::BraceClose) {
-            self.ast.exprs.alloc(ExprNode::Const(Constant::Unit))
+            self.alloc_expr(Const(Constant::Unit), self.span())
         } else {
             let expr = self.parse_block(Token::BraceClose)?;
             self.expect(Token::BraceClose)?;
             expr
         };
 
-        let name = self.ast.exprs.alloc(ExprNode::Var(name));
-        Some(self.ast.exprs.alloc(ExprNode::Decl {
-            name,
-            args,
-            return_type,
-            expr,
-        }))
+        let name = self.alloc_expr(Var, name_span);
+        Some(self.alloc_expr(
+            Decl {
+                name,
+                args,
+                return_type,
+                expr,
+            },
+            fn_span,
+        ))
     }
 }

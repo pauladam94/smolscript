@@ -10,30 +10,33 @@ impl CLI {
 
 impl SmolAPI for CLI {
     fn is_hidden(&self, widget_index: u16) -> bool {
-        todo!()
+        println!("[API CALL] : is_hidden");
+        true
     }
 
     fn show(&mut self, widget_index: u16) {
-        todo!()
+        println!("[API CALL] : is_hidden");
     }
 
     fn get_text(&self, widget_index: u16) -> Option<&str> {
-        todo!()
+        println!("[API CALL] : is_hidden");
+        Some("")
     }
 
     fn set_text(&mut self, widget_index: u16, text: &str) {
-        todo!()
+        println!("[API CALL] : is_hidden");
     }
 
     fn set_active_card(&mut self, card_index: u16) {
-        todo!()
+        println!("[API CALL] : is_hidden");
     }
 
     fn get_word_def(&self, dict_name: &str, word: &str) -> Option<&str> {
-        todo!()
+        println!("[API CALL] : is_hidden");
+        Some("")
     }
 
-    fn error(&mut self, message: String, pos: core::ops::Range<usize>) {
-        todo!()
+    fn error(&mut self, message: String, pos: core::range::Range<usize>) {
+        println!("[API CALL] : is_hidden");
     }
 }

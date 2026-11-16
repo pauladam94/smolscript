@@ -3,13 +3,14 @@ use crate::ast::{AST, Binary, Constant, ExprId, ExprNode, ExprView, Method, Unar
 use crate::ast_interpreter::interpreter::Interpreter;
 use crate::ast_interpreter::memory::Memory;
 use crate::types::{TypeId, TypeView};
+use crate::utils::annotate::annotate;
 use crate::utils::pad::Pad;
 use core::fmt::{Debug, Display, Formatter, Result, Write};
 use itertools::Itertools;
 
 impl Display for AST<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        write!(f, "{}", self.show(self.expr))
+        write!(f, "{}", self.show(self.root))
     }
 }
 
@@ -21,6 +22,7 @@ impl Display for ExprView<'_, '_> {
                 args,
                 return_type,
                 expr,
+                ..
             } => {
                 write!(
                     f,
@@ -32,10 +34,10 @@ impl Display for ExprView<'_, '_> {
                 write!(Pad { f }, "\n{}", self.ast.show(expr))?;
                 write!(f, "\n}}")
             }
-            ExprNode::Var(v) => write!(f, "{v}"),
+            ExprNode::Var => write!(f, "{}", self.ast.get_slice(self.id)),
             ExprNode::Seq { .. } => {
                 let mut id = self.id;
-                while let ExprNode::Seq { fst, snd } = self.ast.exprs[id] {
+                while let ExprNode::Seq { fst, snd, .. } = self.ast.exprs[id] {
                     write!(f, "{};\n", self.ast.show(fst))?;
                     id = snd;
                 }
@@ -45,7 +47,7 @@ impl Display for ExprView<'_, '_> {
             ExprNode::Array { .. } => {
                 let mut id = self.id;
                 write!(f, "[")?;
-                while let ExprNode::Array { head, tail } = self.ast.exprs[id] {
+                while let ExprNode::Array { head, tail, .. } = self.ast.exprs[id] {
                     write!(f, "{}", self.ast.show(head))?;
                     if self.ast.exprs[tail] != ExprNode::EmptyVec {
                         write!(f, ", ")?;
@@ -57,7 +59,7 @@ impl Display for ExprView<'_, '_> {
             ExprNode::Tuple { .. } => {
                 let mut id = self.id;
                 write!(f, "(")?;
-                while let ExprNode::Tuple { head, tail } = self.ast.exprs[id] {
+                while let ExprNode::Tuple { head, tail, .. } = self.ast.exprs[id] {
                     write!(f, "{}", self.ast.show(head))?;
                     if self.ast.exprs[tail] != ExprNode::EmptyTuple {
                         write!(f, ", ")?;
@@ -66,7 +68,7 @@ impl Display for ExprView<'_, '_> {
                 }
                 write!(f, ")")
             }
-            ExprNode::Index { body, index } => {
+            ExprNode::Index { body, index, .. } => {
                 write!(f, "{}", self.ast.show(body))?;
                 write!(f, "[{}]", self.ast.show(index))
             }
@@ -74,6 +76,7 @@ impl Display for ExprView<'_, '_> {
                 index,
                 method,
                 args,
+                ..
             } => {
                 write!(
                     f,
@@ -82,10 +85,10 @@ impl Display for ExprView<'_, '_> {
                     self.ast.show(args)
                 )
             }
-            ExprNode::FunCall { name, args } => {
+            ExprNode::FunCall { name, args, .. } => {
                 write!(f, "{}{}", self.ast.show(name), self.ast.show(args))
             }
-            ExprNode::Let { var, t, expr } => {
+            ExprNode::Let { var, t, expr, .. } => {
                 write!(
                     f,
                     "let {} : {} = {}",
@@ -94,31 +97,30 @@ impl Display for ExprView<'_, '_> {
                     self.ast.show(expr),
                 )
             }
-            ExprNode::Assign { index, expr } => {
+            ExprNode::Assign { index, expr, .. } => {
                 write!(f, "{} = {}", self.ast.show(index), self.ast.show(expr))
             }
-            ExprNode::While { cond, body } => {
+            ExprNode::While { cond, body, .. } => {
                 write!(f, "while ({}) {{", self.ast.show(cond))?;
                 write!(Pad { f }, "\n{}", self.ast.show(body))?;
                 write!(f, "\n}}")
             }
-            ExprNode::If { cond, yes, no } => {
+            ExprNode::If { cond, yes, no, .. } => {
                 write!(f, "if ({}) {{", self.ast.show(cond))?;
                 write!(Pad { f }, "\n{}", self.ast.show(yes))?;
                 write!(f, "\n}} else {{")?;
                 write!(Pad { f }, "\n{}", self.ast.show(no))?;
                 write!(f, "\n}}")
             }
-            ExprNode::Const(constant) => {
-                write!(f, "{constant}")
-            }
-            ExprNode::BinaryOp { lhs, op, rhs } => {
+            ExprNode::Text => write!(f, "\"{}\"", self.ast.get_slice(self.id)),
+            ExprNode::Const(value) => write!(f, "{value}"),
+            ExprNode::BinaryOp { lhs, op, rhs, .. } => {
                 write!(f, "({} {op} {})", self.ast.show(lhs), self.ast.show(rhs))
             }
-            ExprNode::UnaryOp { lhs, op } => {
+            ExprNode::UnaryOp { lhs, op, .. } => {
                 write!(f, "{op} {}", self.ast.show(lhs))
             }
-            ExprNode::TypeInfo { expr, t } => {
+            ExprNode::TypeInfo { expr, t, .. } => {
                 write!(f, "{} : {}", self.ast.show(expr), self.ast.show_type(t))
             }
             ExprNode::EmptyVec => write!(f, "[]"),
@@ -256,6 +258,7 @@ impl Display for TypeView<'_, '_> {
                 )
             }
             TypeNode::Unknown => write!(f, "?"),
+            TypeNode::String => write!(f, "text"),
         }
     }
 }
@@ -312,6 +315,15 @@ impl<T: SmolAPI> Display for Interpreter<'_, T> {
             f,
             "Stack Values : [{}]",
             self.values_stack.iter().format(",")
+        )?;
+        writeln!(
+            f,
+            "{}",
+            annotate(
+                self.ast.input,
+                self.ast.get_span(self.program_counter),
+                "interpreter position"
+            )
         )?;
         writeln!(f, "AST (exprs) :\n{:?}", self.ast.exprs)?;
         writeln!(f, "AST (types) :\n{:?}", self.ast.types)?;

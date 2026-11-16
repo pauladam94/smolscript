@@ -158,6 +158,8 @@ pub enum Token {
     Number,
     #[regex("(_|[a-zA-Z])(_|[0-9]|[a-zA-Z])*")]
     Identifier,
+    #[regex(r#""([^"\\\x00-\x1F]|\\(["\\bnfrt/]|u[a-fA-F0-9]{4}))*""#)]
+    Text,
 }
 
 /// Update the line count and the char index.
@@ -230,6 +232,7 @@ impl Display for Token {
             Token::Div => write!(f, "/"),
             Token::Number => write!(f, "number"),
             Token::Identifier => write!(f, "identifier"),
+            Token::Text => write!(f, "string"),
         }
     }
 }

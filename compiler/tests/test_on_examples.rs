@@ -61,19 +61,24 @@ fn full_test([file, json_file]: [&str; 2]) {
         }
     }
 
-    // We get the CST and continue without excepting an error.
+    // We get the AST and continue without excepting an error.
     let mut ast = file_parse
         .unwrap_or_else(|err| panic!("Parsing should success but failed with errors :\n{err}"));
 
-    // We print the CST to see what it looks like
+    // We print the AST to see what it looks like
     println!(
         "{} : \n{}\n---",
         "[SUCCESS] Parsing of Initial file ".green(),
         ast
     );
 
-    // We get the
+    // Wet get the printed AST
     let ast_print = format!("{ast}");
+
+    // We check coherence of this file with the original file
+    if let Err(err) = check_coherence_files(file, &ast_print) {
+        panic!("[ERROR] {err}")
+    }
     let mut ast_2 = parser(&ast_print).unwrap_or_else(|err| {
         panic!("[ERROR] Parsing of the printed AST should success but failed with errors :\n{err}")
     });
@@ -148,6 +153,32 @@ fn full_test([file, json_file]: [&str; 2]) {
         PPBytes(ALLOCATER.max_allocated.load(Relaxed))
     );
     // Compiling to C and comparing output
+}
+
+/// Check if two strings have the same number of occurence of a given character.
+fn has_same_number_of_char(lhs: &str, rhs: &str, c: char) -> bool {
+    let left_count = lhs.chars().fold(
+        0,
+        |acc, character| if character == c { acc + 1 } else { acc },
+    );
+    let right_count = rhs.chars().fold(
+        0,
+        |acc, character| if character == c { acc + 1 } else { acc },
+    );
+    left_count == right_count
+}
+
+/// Check if two files have same number of '{', '}', '=', ';'.
+fn check_coherence_files(lhs: &str, rhs: &str) -> Result<(), String> {
+    for c in ['}', '{', '=', ';'] {
+        if !has_same_number_of_char(lhs, rhs, c) {
+            return Err(format!(
+                "Files don't have the same number of '{}' character.",
+                c
+            ));
+        }
+    }
+    Ok(())
 }
 
 fn compile_to_c_and_test_output() {

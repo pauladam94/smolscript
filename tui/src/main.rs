@@ -16,10 +16,10 @@ const TABS_NUMBER: usize = 7;
 const TABS_NAMES: [&str; TABS_NUMBER] = [
     "Source File",
     "AST",
-    "AST Debug",
-    "AST Type checked",
-    "AST Type checked Debug",
-    "C Generated Code",
+    "AST Dbg",
+    "AST Checked",
+    "AST Checked Dbg",
+    "C Backend",
     "Interpreter",
 ];
 

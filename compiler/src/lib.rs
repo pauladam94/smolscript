@@ -69,7 +69,7 @@ pub fn interpreter_from_str<'src, T: SmolAPI>(
         }
         return None;
     };
-    parser.ast.expr = expr;
+    parser.ast.root = expr;
 
     let mut ast = parser.ast;
     let res_type_checking = type_check(&mut ast);
@@ -96,7 +96,7 @@ pub fn parser<'src>(input: &'src str) -> Result<AST<'src>, String> {
             parser.ast,
         ));
     };
-    parser.ast.expr = expr;
+    parser.ast.root = expr;
     let current_span = parser.span();
     match parser.bump() {
         Some(_) => Err(format!(
@@ -112,7 +112,7 @@ pub fn parser<'src>(input: &'src str) -> Result<AST<'src>, String> {
 /// This function type checks the [AST]. It modifies the type information of
 /// the [AST] that are unknown with complete type information.
 pub fn type_check(ast: &mut AST) -> Result<TypeId, Vec<CompilerError>> {
-    let expr = ast.expr;
+    let expr = ast.root;
     let mut checker = Checker::new(ast);
     let checker_result = checker.check_expr(expr);
     if checker.ast.has_unknown_type() || !checker.errors.is_empty() || checker_result == None {

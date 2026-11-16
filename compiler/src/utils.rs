@@ -5,3 +5,6 @@ pub mod arena;
 pub mod annotate;
 
 pub mod error;
+
+pub mod span;
+

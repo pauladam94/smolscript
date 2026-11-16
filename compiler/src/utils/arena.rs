@@ -41,9 +41,6 @@ impl<T, Id: ArenaId> Arena<T, Id> {
         self.items.push(node);
         return Id::from_usize(self.items.len() - 1);
     }
-    pub fn iter(&self) -> () {
-        todo!()
-    }
 }
 
 impl<T, Id: ArenaId> Index<Id> for Arena<T, Id> {

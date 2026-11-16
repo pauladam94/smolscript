@@ -21,5 +21,5 @@ impl SmolAPI for TestAPI {
         Some("Get Text")
     }
 
-    fn error(&mut self, _message: String, _pos: core::ops::Range<usize>) {}
+    fn error(&mut self, _message: String, _pos: core::range::Range<usize>) {}
 }

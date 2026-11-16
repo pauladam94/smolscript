@@ -1,6 +1,6 @@
+use crate::utils::span::Span;
 use alloc::string::String;
 use core::fmt::Display;
-use logos::Span;
 
 #[derive(Debug)]
 pub struct CompilerError {

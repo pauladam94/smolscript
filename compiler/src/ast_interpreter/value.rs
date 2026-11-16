@@ -1,10 +1,11 @@
 use crate::ast::{Binary, Constant, Unary};
-use alloc::collections::vec_deque::VecDeque;
+use alloc::{collections::vec_deque::VecDeque, string::String};
 use core::fmt::{Display, Formatter, Result};
 use itertools::Itertools;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
+    Text(String),
     Constant(Constant),
     Array(VecDeque<Value>),
 }
@@ -60,12 +61,18 @@ impl Value {
                     unreachable!("Pop done on a constant. This should be avoided at type checking.")
                 }
                 Value::Array(values) => values.pop_back().unwrap(),
+                Value::Text(_) => {
+                    unreachable!("Pop done on a string. This should be avoided at type checking.")
+                }
             }
         } else {
             let i = index.pop_front().unwrap();
             match self {
                 Value::Constant(_) => {
                     unreachable!("Pop done on a constant. This should be avoided at type checking.")
+                }
+                Value::Text(_) => {
+                    unreachable!("Pop done on a string. This should be avoided at type checking.")
                 }
                 Value::Array(values) => values[i].pop(index),
             }
@@ -75,7 +82,10 @@ impl Value {
     pub(crate) fn compute_binary(self, op: Binary, rhs: Value) -> Value {
         use Value::*;
         match (op, self, rhs) {
-            (_, Constant(_), Array(_)) | (_, Array(_), Constant(_)) => {
+            (_, Text(_), _)
+            | (_, _, Text(_))
+            | (_, Constant(_), Array(_))
+            | (_, Array(_), Constant(_)) => {
                 unreachable!("Type checking should prevent this operation.")
             }
             (op, Constant(lhs), Constant(rhs)) => Value::Constant(lhs.compute_binary(op, rhs)),
@@ -100,6 +110,7 @@ impl Display for Value {
         match self {
             Value::Constant(constant) => write!(f, "{constant}"),
             Value::Array(array) => write!(f, "[{}]", array.iter().format(",")),
+            Value::Text(s) => write!(f, "\"{s}\""),
         }
     }
 }
