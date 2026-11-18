@@ -5,13 +5,13 @@ edition = "2024"
 
 [dependencies]
 # Lexer
-logos = { version = "0.16.1", default-features = false, features = ["export_derive"]}
+logos = { version = "0.16.1", default-features = false, features = ["export_derive"] }
 # Additional method useful with iterators
 itertools = { version = "0.15.0", default-features = false }
 # Annotation tools to have nice errors on code
 annotate-snippets = { version = "0.12.16", default-features = false }
 # Coloration string tool
-colored = { version = "3", default-features = false }
+# colored = { version = "3", default-features = false }
 # Arena data structure
 # id-arena = { version = "2.3.0", default-features = false}
 
