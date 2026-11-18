@@ -16,8 +16,9 @@ impl Display for AST<'_> {
 
 impl Display for ExprView<'_, '_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        use ExprNode::*;
         match self.ast.exprs[self.id] {
-            ExprNode::Decl {
+            Decl {
                 name,
                 args,
                 return_type,
@@ -34,45 +35,47 @@ impl Display for ExprView<'_, '_> {
                 write!(Pad { f }, "\n{}", self.ast.show(expr))?;
                 write!(f, "\n}}")
             }
-            ExprNode::Var => write!(f, "{}", self.ast.get_slice(self.id)),
-            ExprNode::Seq { .. } => {
+            Var => write!(f, "{}", self.ast.get_slice(self.id)),
+            Seq { .. } => {
                 let mut id = self.id;
-                while let ExprNode::Seq { fst, snd, .. } = self.ast.exprs[id] {
+                while let Seq { fst, snd, .. } = self.ast.exprs[id] {
                     write!(f, "{};\n", self.ast.show(fst))?;
                     id = snd;
                 }
                 write!(f, "{}", self.ast.show(id))?;
                 Ok(())
             }
-            ExprNode::Array { .. } => {
+            Array { .. } => {
                 let mut id = self.id;
                 write!(f, "[")?;
-                while let ExprNode::Array { head, tail, .. } = self.ast.exprs[id] {
+                while let Array { head, tail, .. } = self.ast.exprs[id] {
                     write!(f, "{}", self.ast.show(head))?;
-                    if self.ast.exprs[tail] != ExprNode::EmptyVec {
+                    if self.ast.exprs[tail] != EmptyVec {
                         write!(f, ", ")?;
                     }
                     id = tail;
                 }
                 write!(f, "]")
             }
-            ExprNode::Tuple { .. } => {
+            Tuple { .. } => {
                 let mut id = self.id;
                 write!(f, "(")?;
-                while let ExprNode::Tuple { head, tail, .. } = self.ast.exprs[id] {
+                while let Tuple { head, tail, .. } = self.ast.exprs[id] {
                     write!(f, "{}", self.ast.show(head))?;
-                    if self.ast.exprs[tail] != ExprNode::EmptyTuple {
+                    if self.ast.exprs[tail] != EmptyTuple {
                         write!(f, ", ")?;
                     }
                     id = tail;
                 }
                 write!(f, ")")
             }
-            ExprNode::Index { body, index, .. } => {
-                write!(f, "{}", self.ast.show(body))?;
-                write!(f, "[{}]", self.ast.show(index))
+            FieldAccess { body, field } => {
+                write!(f, "{}.{}", self.ast.show(body), self.ast.show(field))
             }
-            ExprNode::MethodCall {
+            Index { body, index, .. } => {
+                write!(f, "{}[{}]", self.ast.show(body), self.ast.show(index))
+            }
+            MethodCall {
                 index,
                 method,
                 args,
@@ -85,10 +88,10 @@ impl Display for ExprView<'_, '_> {
                     self.ast.show(args)
                 )
             }
-            ExprNode::FunCall { name, args, .. } => {
+            APICall { name, args } | FunCall { name, args } => {
                 write!(f, "{}{}", self.ast.show(name), self.ast.show(args))
             }
-            ExprNode::Let { var, t, expr, .. } => {
+            Let { var, t, expr, .. } => {
                 write!(
                     f,
                     "let {} : {} = {}",
@@ -97,35 +100,35 @@ impl Display for ExprView<'_, '_> {
                     self.ast.show(expr),
                 )
             }
-            ExprNode::Assign { index, expr, .. } => {
+            Assign { index, expr, .. } => {
                 write!(f, "{} = {}", self.ast.show(index), self.ast.show(expr))
             }
-            ExprNode::While { cond, body, .. } => {
+            While { cond, body, .. } => {
                 write!(f, "while ({}) {{", self.ast.show(cond))?;
                 write!(Pad { f }, "\n{}", self.ast.show(body))?;
                 write!(f, "\n}}")
             }
-            ExprNode::If { cond, yes, no, .. } => {
+            If { cond, yes, no, .. } => {
                 write!(f, "if ({}) {{", self.ast.show(cond))?;
                 write!(Pad { f }, "\n{}", self.ast.show(yes))?;
                 write!(f, "\n}} else {{")?;
                 write!(Pad { f }, "\n{}", self.ast.show(no))?;
                 write!(f, "\n}}")
             }
-            ExprNode::Text => write!(f, "\"{}\"", self.ast.get_slice(self.id)),
-            ExprNode::Const(value) => write!(f, "{value}"),
-            ExprNode::BinaryOp { lhs, op, rhs, .. } => {
+            Text => write!(f, "\"{}\"", self.ast.get_slice(self.id)),
+            Const(value) => write!(f, "{value}"),
+            BinaryOp { lhs, op, rhs, .. } => {
                 write!(f, "({} {op} {})", self.ast.show(lhs), self.ast.show(rhs))
             }
-            ExprNode::UnaryOp { lhs, op, .. } => {
+            UnaryOp { lhs, op, .. } => {
                 write!(f, "{op} {}", self.ast.show(lhs))
             }
-            ExprNode::TypeInfo { expr, t, .. } => {
+            TypeInfo { expr, t, .. } => {
                 write!(f, "{} : {}", self.ast.show(expr), self.ast.show_type(t))
             }
-            ExprNode::EmptyVec => write!(f, "[]"),
-            ExprNode::Unknown => write!(f, "?"),
-            ExprNode::EmptyTuple => write!(f, "()"),
+            EmptyVec => write!(f, "[]"),
+            Unknown => write!(f, "?"),
+            EmptyTuple => write!(f, "()"),
         }
     }
 }

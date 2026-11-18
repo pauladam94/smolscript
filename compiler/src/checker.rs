@@ -113,6 +113,8 @@ impl<'a, 'src> Checker<'a, 'src> {
             // TODO
             Tuple { head, tail } => None,
             // TODO
+            FieldAccess { body, field } => None,
+            // TODO
             Index { body, index } => None,
             // TODO
             MethodCall {
@@ -136,7 +138,8 @@ impl<'a, 'src> Checker<'a, 'src> {
                 let Let { var, t, expr } = &mut self.ast.exprs[id] else {
                     return None;
                 };
-                todo!()
+                // TODO
+                None
             }
             Assign { index, expr } => None,
             While { cond, body } => None,

@@ -23,7 +23,7 @@ impl SmolAPI for CLI {
         Some("")
     }
 
-    fn set_text(&mut self, widget_index: u16, text: &str) {
+    fn set_text(&mut self, widget_index: u16, text: String) {
         println!("[API CALL] : is_hidden");
     }
 
@@ -31,12 +31,16 @@ impl SmolAPI for CLI {
         println!("[API CALL] : is_hidden");
     }
 
-    fn get_word_def(&self, dict_name: &str, word: &str) -> Option<&str> {
+    fn get_word_def(&self, dict_name: &str, word: &str) -> Option<String> {
         println!("[API CALL] : is_hidden");
-        Some("")
+        Some("".to_string())
     }
 
     fn error(&mut self, message: String, pos: core::range::Range<usize>) {
         println!("[API CALL] : is_hidden");
+    }
+
+    fn get_handle(&self, widget_name: &str) -> u16 {
+        todo!()
     }
 }
